@@ -28,7 +28,27 @@ fi
 
 # --- Scheduler Mode ---
 if [ "$MODE" == "scheduler" ]; then
-    echo "Scheduler mode is not yet implemented."
+    echo "Scheduler mode is running..."
+    while true; do
+        DATE=$(date +%Y%m%d)
+        HOUR=$(date +%H)
+        HOUR_NUM=$((10#$HOUR))
+        if (( HOUR_NUM >= 0 && HOUR_NUM < 6 )); then CYCLE="18"; DATE=$(date -d "yesterday" +%Y%m%d); fi
+        if (( HOUR_NUM >= 6 && HOUR_NUM < 12 )); then CYCLE="00"; fi
+        if (( HOUR_NUM >= 12 && HOUR_NUM < 18 )); then CYCLE="06"; fi
+        if (( HOUR_NUM >= 18 )); then CYCLE="12"; fi
+
+        echo "Running pipeline for date $DATE and cycle $CYCLE"
+        python3 orchestration/pipeline_scheduler.py --date $DATE --cycle $CYCLE
+
+        if [ $? -eq 0 ]; then
+            echo "Pipeline finished successfully."
+        else
+            echo "Pipeline failed."
+        fi
+        echo "Waiting for 6 hours before next run..."
+        sleep 21600
+    done
     
 # --- Manual Mode ---
 elif [ "$MODE" == "manual" ]; then
