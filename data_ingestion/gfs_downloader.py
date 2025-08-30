@@ -46,7 +46,7 @@ def download_gfs_data(date_str, cycle):
             'leftlon': str(EUROPE_BOUNDS['lon_min']),
             'rightlon': str(EUROPE_BOUNDS['lon_max']),
             'toplat': str(EUROPE_BOUNDS['lat_max']),
-            'bottomlat': str(EURO_BOUNDS['lat_min']),
+            'bottomlat': str(EUROPE_BOUNDS['lat_min']),
             'dir': f'/gfs.{date_str}/{cycle}/atmos'
         }
 
