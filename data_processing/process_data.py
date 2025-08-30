@@ -41,7 +41,7 @@ def process_gfs_data(date_str, cycle):
     """)
 
     for file_name in sorted(os.listdir(raw_data_dir)):
-        if file_name.endswith(".grib2") or file_name.startswith("gfs."):
+        if (file_name.endswith(".grib2") or file_name.startswith("gfs.")) and not file_name.endswith(".idx"):
             file_path = os.path.join(raw_data_dir, file_name)
             print(f"Processing {file_path}")
 
