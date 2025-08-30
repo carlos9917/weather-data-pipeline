@@ -38,10 +38,10 @@ def download_gfs_data(date_str, cycle):
         params = {
             'file': file_name,
             'lev_100_m_above_ground': 'on',
-            'lev_2_m_above_ground': 'on',
-            'var_TMP': 'on',
             'var_UGRD': 'on',
             'var_VGRD': 'on',
+            'lev_2_m_above_ground': 'on',
+            'var_TMP': 'on',
             'subregion': '',
             'leftlon': str(EUROPE_BOUNDS['lon_min']),
             'rightlon': str(EUROPE_BOUNDS['lon_max']),
