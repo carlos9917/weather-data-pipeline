@@ -46,7 +46,11 @@ def process_gfs_data(date_str, cycle):
             print(f"Processing {file_path}")
 
             try:
-                ds = xr.open_dataset(file_path, engine="cfgrib")
+                ds_wind = xr.open_dataset(file_path, engine="cfgrib",
+                                          backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}})
+                ds_temp = xr.open_dataset(file_path, engine="cfgrib",
+                                          backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2}})
+                ds = xr.merge([ds_wind, ds_temp])
 
                 # Extract variables
                 u_wind = ds['u100']
