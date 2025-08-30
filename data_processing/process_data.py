@@ -36,7 +36,9 @@ def process_gfs_data(date_str, cycle):
             v_wind REAL,
             temperature REAL,
             wind_speed REAL,
-            wind_direction REAL
+            wind_direction REAL,
+            precipitation REAL,
+            cloud_cover REAL
         );
     """)
 
@@ -50,12 +52,18 @@ def process_gfs_data(date_str, cycle):
                                           backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}})
                 ds_temp = xr.open_dataset(file_path, engine="cfgrib",
                                           backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2}})
-                ds = xr.merge([ds_wind, ds_temp], compat='override')
+                ds_precip = xr.open_dataset(file_path, engine="cfgrib",
+                                             backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'tp'}})
+                ds_cloud = xr.open_dataset(file_path, engine="cfgrib",
+                                           backend_kwargs={'filter_by_keys': {'typeOfLevel': 'atmosphere', 'shortName': 'tcc'}})
+                ds = xr.merge([ds_wind, ds_temp, ds_precip, ds_cloud], compat='override')
 
                 # Extract variables
                 u_wind = ds['u100']
                 v_wind = ds['v100']
                 temp = ds['t2m']
+                precip = ds['tp']
+                cloud = ds['tcc']
 
                 # Calculate wind speed and direction
                 wind_speed = (u_wind**2 + v_wind**2)**0.5
@@ -63,16 +71,18 @@ def process_gfs_data(date_str, cycle):
 
                 # Convert to pandas DataFrame
                 df = ds.to_dataframe().reset_index()
-                df = df.drop(columns=['heightAboveGround', 'time', 'step'])
+                df = df.drop(columns=['heightAboveGround', 'time', 'step', 'atmosphere', 'surface'])
                 df['u_wind'] = u_wind.values.flatten()
                 df['v_wind'] = v_wind.values.flatten()
                 df['temperature'] = temp.values.flatten()
                 df['wind_speed'] = wind_speed.values.flatten()
                 df['wind_direction'] = wind_direction.values.flatten()
+                df['precipitation'] = precip.values.flatten()
+                df['cloud_cover'] = cloud.values.flatten()
                 df = df.rename(columns={'valid_time': 'time'})
 
                 # Select and order columns for insertion
-                df = df[['time', 'latitude', 'longitude', 'u_wind', 'v_wind', 'temperature', 'wind_speed', 'wind_direction']]
+                df = df[['time', 'latitude', 'longitude', 'u_wind', 'v_wind', 'temperature', 'wind_speed', 'wind_direction', 'precipitation', 'cloud_cover']]
 
                 # Insert data into DuckDB
                 conn.register('gfs_df', df)
