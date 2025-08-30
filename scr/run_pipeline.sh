@@ -6,21 +6,14 @@
 
 # Function to display help
 show_help() {
-    echo "Usage: ./run.sh [scheduler|dashboard|dashboard-py|manual|default] [options]"
-    echo "  - scheduler: Run the automated data extraction and analysis pipeline."
-    echo "  - dashboard: Run the interactive R Shiny dashboard."
-    echo "  - dashboard-py: Run the interactive Python Dash dashboard."
+    echo "Usage: ./run.sh [scheduler|manual|default] [options]"
+    echo "  - scheduler: Not yet implemented."
     echo "  - manual: Run a one-time data extraction and analysis."
     echo "    - --date <YYYYMMDD>: The date to extract data for."
     echo "    - --cycle <00|06|12|18>: The GFS cycle to extract data for."
-    echo "  - default: Run the original pipeline script."
+    echo "  - default: Run the pipeline for the latest available data."
 }
 
-
-## Activate virtual environment if it exists
-#if [ -f ".venv/bin/activate" ]; then
-#    source .venv/bin/activate
-#fi
 
 # Get the first argument to determine the mode
 MODE=$1
@@ -35,22 +28,12 @@ fi
 
 # --- Scheduler Mode ---
 if [ "$MODE" == "scheduler" ]; then
-    echo "Starting the scheduler..."
-    echo "Cleaning up old index files..."
-    find data/raw -name "*.idx" -delete
-    source .venv/bin/activate
-    python3 src/scheduler.py --mode scheduler
-    
-# --- Dashboard Mode ---
-elif [ "$MODE" == "dashboard" ]; then
-    echo "Starting the dashboard..."
-    python src/dashboard.py
+    echo "Scheduler mode is not yet implemented."
     
 # --- Manual Mode ---
 elif [ "$MODE" == "manual" ]; then
     echo "Running manual data extraction..."
-    source .venv/bin/activate
-    python3 src/scheduler.py --mode manual "$@"
+    python3 orchestration/pipeline_scheduler.py "$@"
     
 # --- Original Mode (for compatibility) ---
 elif [ "$MODE" == "default" ]; then
@@ -73,27 +56,16 @@ elif [ "$MODE" == "default" ]; then
     echo "Running pipeline for date $DATE and cycle $CYCLE"
 
     # Run the Python data extraction script
-    source .venv/bin/activate
-    python3 src/data_extractor.py --date $DATE --cycle $CYCLE
+    python3 orchestration/pipeline_scheduler.py --date $DATE --cycle $CYCLE
 
 
     # Check if the python script succeeded
     if [ $? -eq 0 ]; then
-      echo "data extractor script finished successfully."
-      # Run the python analysis script
-      python src/analysis.py --date $DATE --cycle $CYCLE
-      if [ $? -eq 0 ]; then
-        echo "R script finished successfully."
-      else
-        echo "R script failed. Halting pipeline."
-        exit 1
-      fi
+      echo "Pipeline finished successfully."
     else
-      echo "Python script failed. Halting pipeline."
+      echo "Pipeline failed."
       exit 1
     fi
-
-    echo "Pipeline finished."
 
 # --- Help ---
 else
