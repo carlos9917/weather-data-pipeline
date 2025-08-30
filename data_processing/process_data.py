@@ -50,7 +50,7 @@ def process_gfs_data(date_str, cycle):
                                           backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}})
                 ds_temp = xr.open_dataset(file_path, engine="cfgrib",
                                           backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2}})
-                ds = xr.merge([ds_wind, ds_temp])
+                ds = xr.merge([ds_wind, ds_temp], compat='override')
 
                 # Extract variables
                 u_wind = ds['u100']
