@@ -39,7 +39,7 @@ if [ "$MODE" == "scheduler" ]; then
     echo "Cleaning up old index files..."
     find data/raw -name "*.idx" -delete
     source .venv/bin/activate
-    python3 src/scheduler.py --mode scheduler
+    python3 orchestration/scheduler.py --mode scheduler
     
 # --- Dashboard Mode ---
 elif [ "$MODE" == "dashboard" ]; then
@@ -74,14 +74,14 @@ elif [ "$MODE" == "default" ]; then
 
     # Run the Python data extraction script
     source .venv/bin/activate
-    python3 src/data_extractor.py --date $DATE --cycle $CYCLE
+    python3 data_processing/data_extractor.py --date $DATE --cycle $CYCLE
 
 
     # Check if the python script succeeded
     if [ $? -eq 0 ]; then
       echo "data extractor script finished successfully."
       # Run the python analysis script
-      python src/analysis.py --date $DATE --cycle $CYCLE
+      python data_processing/analysis.py --date $DATE --cycle $CYCLE
       if [ $? -eq 0 ]; then
         echo "R script finished successfully."
       else
