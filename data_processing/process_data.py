@@ -63,7 +63,7 @@ def process_gfs_data(date_str, cycle):
 
                 # Convert to pandas DataFrame
                 df = ds.to_dataframe().reset_index()
-                df = df.drop(columns=['heightAboveGround'])
+                df = df.drop(columns=['heightAboveGround', 'time', 'step'])
                 df['u_wind'] = u_wind.values.flatten()
                 df['v_wind'] = v_wind.values.flatten()
                 df['temperature'] = temp.values.flatten()
