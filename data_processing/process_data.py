@@ -4,6 +4,7 @@ import duckdb
 import argparse
 import sys
 import pandas as pd
+import numpy as np
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,7 +23,8 @@ def process_gfs_data_duckdb(date_str, cycle):
         return
 
     conn = duckdb.connect(DATABASE_PATH)
-    conn.execute("""
+    # Define the full schema including all possible columns
+    table_schema = """
         CREATE TABLE IF NOT EXISTS gfs_data (
             time TIMESTAMP,
             latitude REAL,
@@ -37,7 +39,11 @@ def process_gfs_data_duckdb(date_str, cycle):
             wind_speed REAL,
             wind_direction REAL
         );
-    """)
+    """
+    conn.execute(table_schema)
+    # Get the list of columns from the schema to ensure DataFrame consistency
+    db_columns = [col[0] for col in conn.execute("DESCRIBE gfs_data;").fetchall()]
+
 
     for file_name in sorted(os.listdir(raw_data_dir)):
         if (file_name.endswith(".grib2") or file_name.startswith("gfs.")) and not file_name.endswith(".idx"):
@@ -45,31 +51,35 @@ def process_gfs_data_duckdb(date_str, cycle):
             print(f"Processing {file_path}")
 
             try:
-                ds_wind = xr.open_dataset(file_path, engine="cfgrib",
-                                          backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}})
-                ds_temp = xr.open_dataset(file_path, engine="cfgrib",
-                                          backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2}})
-                ds_precip = xr.open_dataset(file_path, engine="cfgrib",
-                                             backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'tp'}})
-                ds_cloud = xr.open_dataset(file_path, engine="cfgrib",
-                                           backend_kwargs={'filter_by_keys': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'}})
-                ds_pwat = xr.open_dataset(file_path, engine="cfgrib",
-                                          backend_kwargs={'filter_by_keys': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'}})
-                ds_prmsl = xr.open_dataset(file_path, engine="cfgrib",
-                                           backend_kwargs={'filter_by_keys': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}})
+                datasets = []
+                variable_filters = {
+                    'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100},
+                    'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
+                    'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'},
+                    'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
+                    'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'},
+                    'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
+                }
 
-                ds = xr.merge([ds_wind, ds_temp, ds_precip, ds_cloud, ds_pwat, ds_prmsl], compat='override')
+                for var, filter_keys in variable_filters.items():
+                    try:
+                        datasets.append(xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filter_keys}))
+                    except (ValueError, KeyError) as e:
+                        print(f"Warning: Could not load variable '{var}' from {file_name}. Reason: {e}")
 
-                # Calculate wind speed and direction
-                wind_speed = (ds['u100']**2 + ds['v100']**2)**0.5
-                wind_direction = 180 + (180 / 3.14159) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
+                if not datasets:
+                    print(f"Warning: No processable variables found in {file_name}. Skipping.")
+                    continue
 
-                ds['wind_speed'] = wind_speed
-                ds['wind_direction'] = wind_direction
+                ds = xr.merge(datasets, compat='override')
 
-                # Convert to pandas DataFrame
-                df = ds.to_dataframe().reset_index()
-                df = df.rename(columns={
+                # Calculate wind speed and direction if wind variables are present
+                if 'u100' in ds and 'v100' in ds:
+                    ds['wind_speed'] = (ds['u100']**2 + ds['v100']**2)**0.5
+                    ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
+
+                # Dynamically create the rename mapping based on variables present in the dataset
+                rename_map = {
                     'valid_time': 'time',
                     'u100': 'u_wind',
                     'v100': 'v_wind',
@@ -78,12 +88,20 @@ def process_gfs_data_duckdb(date_str, cycle):
                     'tcc': 'cloud_cover',
                     'pwat': 'precipitable_water',
                     'prmsl': 'mean_sea_level_pressure'
-                })
+                }
+                actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
+                ds = ds.rename(actual_rename_map)
 
+                df = ds.to_dataframe().reset_index()
+
+                # Ensure DataFrame has all columns required by the DB schema, filling missing with NaN
+                for col in db_columns:
+                    if col not in df.columns:
+                        df[col] = np.nan
+                
                 # Select and order columns for insertion
-                df = df[['time', 'latitude', 'longitude', 'u_wind', 'v_wind', 'temperature', 'precipitation', 'cloud_cover', 'precipitable_water', 'mean_sea_level_pressure', 'wind_speed', 'wind_direction']]
+                df = df[db_columns]
 
-                # Insert data into DuckDB
                 conn.register('gfs_df', df)
                 conn.execute("INSERT INTO gfs_data SELECT * FROM gfs_df")
 
@@ -109,32 +127,33 @@ def process_gfs_data_zarr(date_str, cycle):
     for file_path in all_files:
         print(f"Processing {file_path}")
         try:
-            # Open datasets for each variable type, filtering by GRIB keys
-            ds_wind = xr.open_dataset(file_path, engine="cfgrib",
-                                      backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}})
-            ds_temp = xr.open_dataset(file_path, engine="cfgrib",
-                                      backend_kwargs={'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2}})
-            ds_precip = xr.open_dataset(file_path, engine="cfgrib",
-                                         backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'tp'}})
-            ds_cloud = xr.open_dataset(file_path, engine="cfgrib",
-                                       backend_kwargs={'filter_by_keys': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'}})
-            ds_pwat = xr.open_dataset(file_path, engine="cfgrib",
-                                      backend_kwargs={'filter_by_keys': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'}})
-            ds_prmsl = xr.open_dataset(file_path, engine="cfgrib",
-                                       backend_kwargs={'filter_by_keys': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}})
+            datasets = []
+            variable_filters = {
+                'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100},
+                'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
+                'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'},
+                'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
+                'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'},
+                'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
+            }
 
-            # Merge all datasets
-            ds = xr.merge([ds_wind, ds_temp, ds_precip, ds_cloud, ds_pwat, ds_prmsl], compat='override')
+            for var, filter_keys in variable_filters.items():
+                try:
+                    datasets.append(xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filter_keys}))
+                except (ValueError, KeyError) as e:
+                    print(f"Warning: Could not load variable '{var}' from {file_path}. Reason: {e}")
 
-            # Calculate wind speed and direction
-            wind_speed = (ds['u100']**2 + ds['v100']**2)**0.5
-            wind_direction = 180 + (180 / 3.14159) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
-
-            ds['wind_speed'] = wind_speed
-            ds['wind_direction'] = wind_direction
+            if not datasets:
+                print(f"Warning: No processable variables found in {file_path}. Skipping.")
+                continue
             
-            # Rename variables for clarity
-            ds = ds.rename({
+            ds = xr.merge(datasets, compat='override')
+
+            if 'u100' in ds and 'v100' in ds:
+                ds['wind_speed'] = (ds['u100']**2 + ds['v100']**2)**0.5
+                ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
+            
+            rename_map = {
                 'u100': 'u_wind',
                 'v100': 'v_wind',
                 't2m': 'temperature',
@@ -142,10 +161,10 @@ def process_gfs_data_zarr(date_str, cycle):
                 'tcc': 'cloud_cover',
                 'pwat': 'precipitable_water',
                 'prmsl': 'mean_sea_level_pressure'
-            })
+            }
+            actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
+            ds = ds.rename(actual_rename_map)
             
-            # Append to Zarr store
-            # The 'time' dimension is used for appending
             ds.to_zarr(ZARR_STORE_PATH, mode='a', append_dim="time")
 
         except Exception as e:
