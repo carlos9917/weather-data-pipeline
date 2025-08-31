@@ -108,18 +108,26 @@ def process_gfs_data_zarr(date_str, cycle):
     all_files = [os.path.join(raw_data_dir, f) for f in sorted(os.listdir(raw_data_dir))
                  if (f.endswith(".grib2") or f.startswith("gfs.")) and not f.endswith(".idx")]
 
+    # Collect all datasets first, then process together
+    all_datasets = []
+    
     for file_path in all_files:
         print(f"Processing {file_path}")
         try:
             datasets = []
             variable_filters = {
-                'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
-                'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
-                'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'}, 'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
+                'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 
+                'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
+                'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 
+                'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
+                'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'}, 
+                'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
             }
+            
             for var, filter_keys in variable_filters.items():
                 try:
-                    datasets.append(xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filter_keys}))
+                    ds_var = xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filter_keys})
+                    datasets.append(ds_var)
                 except (ValueError, KeyError) as e:
                     print(f"Warning: Could not load variable group '{var}' from {file_path}. Reason: {e}")
 
@@ -127,19 +135,59 @@ def process_gfs_data_zarr(date_str, cycle):
                 print(f"Warning: No processable variables found in {file_path}. Skipping.")
                 continue
             
-            ds = xr.merge(datasets, compat='override')
-
-            if 'valid_time' in ds.coords and 'time' not in ds.coords:
-                ds = ds.rename({'valid_time': 'time'})
+            # Align all datasets to the same time coordinate before merging
+            reference_time = None
+            aligned_datasets = []
+            
+            for ds in datasets:
+                # Standardize time coordinate name
+                if 'valid_time' in ds.coords and 'time' not in ds.coords:
+                    ds = ds.rename({'valid_time': 'time'})
+                
+                if 'time' not in ds.coords:
+                    print(f"Warning: No time coordinate found in dataset from {file_path}")
+                    continue
+                
+                # Ensure time is expanded as a dimension if it's just a scalar coordinate
+                if 'time' in ds.coords and 'time' not in ds.dims:
+                    ds = ds.expand_dims('time')
+                    
+                # Set reference time from first dataset
+                if reference_time is None:
+                    reference_time = ds.coords['time']
+                
+                # Only try to interpolate if both datasets have time as a dimension
+                # and if the time coordinates don't match
+                try:
+                    if ('time' in ds.dims and 'time' in reference_time.dims and 
+                        not ds.coords['time'].equals(reference_time)):
+                        print(f"Warning: Time coordinate mismatch in {file_path}, interpolating to reference time")
+                        ds = ds.interp(time=reference_time, method='nearest')
+                    elif 'time' not in ds.dims or 'time' not in reference_time.dims:
+                        # If either doesn't have time as dimension, just ensure they're both expanded
+                        pass
+                except Exception as interp_error:
+                    print(f"Warning: Could not interpolate time for {file_path}: {interp_error}")
+                
+                aligned_datasets.append(ds)
+            
+            if not aligned_datasets:
+                print(f"Warning: No datasets with valid time coordinates in {file_path}. Skipping.")
+                continue
+                
+            # Merge aligned datasets
+            ds = xr.merge(aligned_datasets, compat='override')
 
             if 'time' not in ds.coords:
-                print(f"FATAL: Could not find 'time' or 'valid_time' coordinate in {file_path}. Skipping file.")
+                print(f"FATAL: Could not find 'time' coordinate after merging in {file_path}. Skipping file.")
                 continue
 
+            # Calculate wind speed and direction if wind components are present
             if 'u100' in ds and 'v100' in ds:
                 ds['wind_speed'] = (ds['u100']**2 + ds['v100']**2)**0.5
                 ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
             
+            # Rename variables to standard names
             rename_map = {
                 'u100': 'u_wind', 'v100': 'v_wind', 't2m': 'temperature', 'tp': 'precipitation',
                 'tcc': 'cloud_cover', 'pwat': 'precipitable_water', 'prmsl': 'mean_sea_level_pressure'
@@ -147,13 +195,50 @@ def process_gfs_data_zarr(date_str, cycle):
             actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
             ds = ds.rename(actual_rename_map)
             
+            # Ensure time is a dimension after all processing
             if 'time' in ds.coords and 'time' not in ds.dims:
                 ds = ds.expand_dims('time')
-
-            ds.to_zarr(ZARR_STORE_PATH, mode='a', append_dim="time")
+            
+            all_datasets.append(ds)
 
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
+    
+    # Now combine all datasets and write to Zarr
+    if all_datasets:
+        try:
+            print(f"Combining {len(all_datasets)} datasets...")
+            
+            # Concatenate all datasets along time dimension
+            combined_ds = xr.concat(all_datasets, dim='time')
+            
+            # Sort by time to ensure proper ordering
+            combined_ds = combined_ds.sortby('time')
+            
+            # Check if Zarr store exists
+            zarr_exists = os.path.exists(ZARR_STORE_PATH)
+            
+            if not zarr_exists:
+                print(f"Creating new Zarr store at {ZARR_STORE_PATH}")
+                combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+            else:
+                print(f"Appending to existing Zarr store")
+                try:
+                    existing_ds = xr.open_zarr(ZARR_STORE_PATH)
+                    if 'time' in existing_ds.dims:
+                        combined_ds.to_zarr(ZARR_STORE_PATH, mode='a', append_dim="time")
+                    else:
+                        print(f"Warning: Existing Zarr store doesn't have time dimension. Creating new store.")
+                        combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+                except Exception as zarr_error:
+                    print(f"Error accessing existing Zarr store: {zarr_error}")
+                    print(f"Creating new Zarr store.")
+                    combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+                    
+        except Exception as e:
+            print(f"Error combining or writing datasets: {e}")
+    else:
+        print("No valid datasets to process.")
 
 def process_gfs_data(date_str, cycle):
     """
