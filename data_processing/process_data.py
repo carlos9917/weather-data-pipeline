@@ -5,6 +5,8 @@ import argparse
 import sys
 import pandas as pd
 import numpy as np
+import warnings
+warnings.filterwarnings("ignore")
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -177,7 +179,7 @@ def process_gfs_data(date_str, cycle):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process GFS data and save to DuckDB or Zarr.")
     parser.add_argument("--date", required=True, help="Date in YYYYMMDD format.")
-    parser.add_rightument("--cycle", required=True, help="Cycle (00, 06, 12, 18).")
+    parser.add_argument("--cycle", required=True, help="Cycle (00, 06, 12, 18).")
     args = parser.parse_args()
 
     process_gfs_data(args.date, args.cycle)
