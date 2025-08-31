@@ -27,79 +27,70 @@ def process_gfs_data_duckdb(date_str, cycle):
     conn = duckdb.connect(DATABASE_PATH)
     table_schema = """
         CREATE TABLE IF NOT EXISTS gfs_data (
-            time TIMESTAMP,
-            latitude REAL,
-            longitude REAL,
-            u_wind REAL,
-            v_wind REAL,
-            temperature REAL,
-            precipitation REAL,
-            cloud_cover REAL,
-            precipitable_water REAL,
-            mean_sea_level_pressure REAL,
-            wind_speed REAL,
-            wind_direction REAL
+            time TIMESTAMP, latitude REAL, longitude REAL, u_wind REAL, v_wind REAL,
+            temperature REAL, precipitation REAL, cloud_cover REAL, precipitable_water REAL,
+            mean_sea_level_pressure REAL, wind_speed REAL, wind_direction REAL
         );
     """
     conn.execute(table_schema)
     db_columns = [col[0] for col in conn.execute("DESCRIBE gfs_data;").fetchall()]
 
     for file_name in sorted(os.listdir(raw_data_dir)):
-        if (file_name.endswith(".grib2") or file_name.startswith("gfs.")) and not file_name.endswith(".idx"):
-            file_path = os.path.join(raw_data_dir, file_name)
-            print(f"Processing {file_path}")
+        if not (file_name.endswith(".grib2") or file_name.startswith("gfs.")) or file_name.endswith(".idx"):
+            continue
 
-            try:
-                datasets = []
-                variable_filters = {
-                    'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100},
-                    'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
-                    'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'},
-                    'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
-                    'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'},
-                    'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
-                }
+        file_path = os.path.join(raw_data_dir, file_name)
+        print(f"Processing {file_path}")
 
-                for var, filter_keys in variable_filters.items():
-                    try:
-                        datasets.append(xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filter_keys}))
-                    except (ValueError, KeyError) as e:
-                        print(f"Warning: Could not load variable '{var}' from {file_name}. Reason: {e}")
+        try:
+            datasets = []
+            variable_filters = {
+                'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
+                'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
+                'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'}, 'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
+            }
+            for var, filter_keys in variable_filters.items():
+                try:
+                    datasets.append(xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filter_keys}))
+                except (ValueError, KeyError) as e:
+                    print(f"Warning: Could not load variable group '{var}' from {file_name}. Reason: {e}")
 
-                if not datasets:
-                    print(f"Warning: No processable variables found in {file_name}. Skipping.")
-                    continue
+            if not datasets:
+                print(f"Warning: No processable variables found in {file_name}. Skipping.")
+                continue
 
-                ds = xr.merge(datasets, compat='override')
+            ds = xr.merge(datasets, compat='override')
 
-                if 'u100' in ds and 'v100' in ds:
-                    ds['wind_speed'] = (ds['u100']**2 + ds['v100']**2)**0.5
-                    ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
+            if 'valid_time' in ds.coords and 'time' not in ds.coords:
+                ds = ds.rename({'valid_time': 'time'})
 
-                rename_map = {
-                    'u100': 'u_wind', 'v100': 'v_wind', 't2m': 'temperature',
-                    'tp': 'precipitation', 'tcc': 'cloud_cover', 'pwat': 'precipitable_water',
-                    'prmsl': 'mean_sea_level_pressure'
-                }
-                actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables or k in ds.coords}
-                ds = ds.rename(actual_rename_map)
+            if 'time' not in ds.coords:
+                print(f"FATAL: Could not find 'time' or 'valid_time' coordinate in {file_path}. Skipping file.")
+                continue
 
-                if 'valid_time' in ds.coords and 'time' not in ds.coords:
-                    ds = ds.rename({'valid_time': 'time'})
+            if 'u100' in ds and 'v100' in ds:
+                ds['wind_speed'] = (ds['u100']**2 + ds['v100']**2)**0.5
+                ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
 
-                df = ds.to_dataframe().reset_index()
+            rename_map = {
+                'u100': 'u_wind', 'v100': 'v_wind', 't2m': 'temperature', 'tp': 'precipitation',
+                'tcc': 'cloud_cover', 'pwat': 'precipitable_water', 'prmsl': 'mean_sea_level_pressure'
+            }
+            actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
+            ds = ds.rename(actual_rename_map)
 
-                for col in db_columns:
-                    if col not in df.columns:
-                        df[col] = np.nan
-                
-                df = df[db_columns]
+            df = ds.to_dataframe().reset_index()
 
-                conn.register('gfs_df', df)
-                conn.execute("INSERT INTO gfs_data SELECT * FROM gfs_df")
+            for col in db_columns:
+                if col not in df.columns:
+                    df[col] = np.nan
+            df = df[db_columns]
 
-            except Exception as e:
-                print(f"Error processing {file_name}: {e}")
+            conn.register('gfs_df', df)
+            conn.execute("INSERT INTO gfs_data SELECT * FROM gfs_df")
+
+        except Exception as e:
+            print(f"Error processing {file_name}: {e}")
 
     conn.close()
 
@@ -122,19 +113,15 @@ def process_gfs_data_zarr(date_str, cycle):
         try:
             datasets = []
             variable_filters = {
-                'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100},
-                'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
-                'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'},
-                'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
-                'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'},
-                'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
+                'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
+                'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
+                'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'}, 'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
             }
-
             for var, filter_keys in variable_filters.items():
                 try:
                     datasets.append(xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filter_keys}))
                 except (ValueError, KeyError) as e:
-                    print(f"Warning: Could not load variable '{var}' from {file_path}. Reason: {e}")
+                    print(f"Warning: Could not load variable group '{var}' from {file_path}. Reason: {e}")
 
             if not datasets:
                 print(f"Warning: No processable variables found in {file_path}. Skipping.")
@@ -142,20 +129,23 @@ def process_gfs_data_zarr(date_str, cycle):
             
             ds = xr.merge(datasets, compat='override')
 
+            if 'valid_time' in ds.coords and 'time' not in ds.coords:
+                ds = ds.rename({'valid_time': 'time'})
+
+            if 'time' not in ds.coords:
+                print(f"FATAL: Could not find 'time' or 'valid_time' coordinate in {file_path}. Skipping file.")
+                continue
+
             if 'u100' in ds and 'v100' in ds:
                 ds['wind_speed'] = (ds['u100']**2 + ds['v100']**2)**0.5
                 ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
             
             rename_map = {
-                'u100': 'u_wind', 'v100': 'v_wind', 't2m': 'temperature',
-                'tp': 'precipitation', 'tcc': 'cloud_cover', 'pwat': 'precipitable_water',
-                'prmsl': 'mean_sea_level_pressure'
+                'u100': 'u_wind', 'v100': 'v_wind', 't2m': 'temperature', 'tp': 'precipitation',
+                'tcc': 'cloud_cover', 'pwat': 'precipitable_water', 'prmsl': 'mean_sea_level_pressure'
             }
-            actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables or k in ds.coords}
+            actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
             ds = ds.rename(actual_rename_map)
-
-            if 'valid_time' in ds.coords and 'time' not in ds.coords:
-                ds = ds.rename({'valid_time': 'time'})
             
             if 'time' in ds.coords and 'time' not in ds.dims:
                 ds = ds.expand_dims('time')
