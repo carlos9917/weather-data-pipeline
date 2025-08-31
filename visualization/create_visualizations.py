@@ -1,4 +1,3 @@
-
 import os
 import duckdb
 import matplotlib.pyplot as plt
@@ -43,33 +42,109 @@ def create_visualizations(date_str, cycle):
 
             fig = plt.figure(figsize=(12, 10))
             ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-            ax.set_extent([EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max'], EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']], crs=ccrs.PlateCarree())
+            ax.set_extent([EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max'], 
+                          EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']], 
+                         crs=ccrs.PlateCarree())
 
             ax.add_feature(cfeature.COASTLINE)
             ax.add_feature(cfeature.BORDERS, linestyle=':')
             ax.gridlines(draw_labels=True)
 
-            # Plot wind speed contours
-            lons = df['longitude'].unique()
-            lats = df['latitude'].unique()
-            wind_speed = df['wind_speed'].values.reshape(len(lats), len(lons))
+            # Debug: Print data info
+            print(f"Data points: {len(df)}")
+            print(f"Unique lons: {len(df['longitude'].unique())}")
+            print(f"Unique lats: {len(df['latitude'].unique())}")
             
-            cf = ax.contourf(lons, lats, wind_speed, transform=ccrs.PlateCarree(), cmap='viridis', levels=np.linspace(0, 25, 11))
-            fig.colorbar(cf, ax=ax, orientation='vertical', label='Wind Speed (m/s)')
+            # Create proper grid using pivot_table
+            try:
+                # Sort data to ensure proper ordering
+                df_sorted = df.sort_values(['latitude', 'longitude'])
+                
+                # Create grids using pivot_table
+                wind_speed_grid = df.pivot_table(
+                    values='wind_speed', 
+                    index='latitude', 
+                    columns='longitude', 
+                    aggfunc='mean'  # Handle duplicates by averaging
+                )
+                
+                u_wind_grid = df.pivot_table(
+                    values='u_wind', 
+                    index='latitude', 
+                    columns='longitude', 
+                    aggfunc='mean'
+                )
+                
+                v_wind_grid = df.pivot_table(
+                    values='v_wind', 
+                    index='latitude', 
+                    columns='longitude', 
+                    aggfunc='mean'
+                )
+                
+                # Get coordinate arrays
+                lons = wind_speed_grid.columns.values
+                lats = wind_speed_grid.index.values
+                
+                # Convert to numpy arrays
+                wind_speed_data = wind_speed_grid.values
+                u_wind_data = u_wind_grid.values
+                v_wind_data = v_wind_grid.values
+                
+                # Plot wind speed contours
+                cf = ax.contourf(lons, lats, wind_speed_data, 
+                               transform=ccrs.PlateCarree(), 
+                               cmap='viridis', 
+                               levels=np.linspace(0, 25, 11))
+                fig.colorbar(cf, ax=ax, orientation='vertical', label='Wind Speed (m/s)')
 
-            # Plot wind barbs
-            skip = 10  # Skip points to avoid overcrowding
-            ax.barbs(lons[::skip], lats[::skip], df['u_wind'].values.reshape(len(lats), len(lons))[::skip, ::skip], df['v_wind'].values.reshape(len(lats), len(lons))[::skip, ::skip], length=6, transform=ccrs.PlateCarree())
+                # Plot wind barbs (with proper subsampling)
+                skip = max(1, len(lons)//20)  # Adaptive skip based on data density
+                lon_sub = lons[::skip]
+                lat_sub = lats[::skip]
+                u_sub = u_wind_data[::skip, ::skip]
+                v_sub = v_wind_data[::skip, ::skip]
+                
+                ax.barbs(lon_sub, lat_sub, u_sub, v_sub, 
+                        length=6, transform=ccrs.PlateCarree())
 
-            ax.set_title(f'Wind Speed and Direction for {time}')
-            
-            plot_path = os.path.join(plots_dir, f'wind_map_{time.strftime("%Y%m%d%H%M")}.png')
-            plt.savefig(plot_path)
-            plt.close(fig)
-            print(f"Saved plot: {plot_path}")
+                ax.set_title(f'Wind Speed and Direction for {time}')
+                
+                plot_path = os.path.join(plots_dir, f'wind_map_{time.strftime("%Y%m%d%H%M")}.png')
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close(fig)
+                print(f"Saved plot: {plot_path}")
+                
+            except Exception as grid_error:
+                print(f"Grid creation failed: {grid_error}")
+                # Fallback: scatter plot
+                fig, ax = plt.subplots(figsize=(12, 10), 
+                                     subplot_kw={'projection': ccrs.PlateCarree()})
+                ax.set_extent([EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max'], 
+                              EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']], 
+                             crs=ccrs.PlateCarree())
+                
+                ax.add_feature(cfeature.COASTLINE)
+                ax.add_feature(cfeature.BORDERS, linestyle=':')
+                ax.gridlines(draw_labels=True)
+                
+                # Scatter plot for wind speed
+                scatter = ax.scatter(df['longitude'], df['latitude'], 
+                                   c=df['wind_speed'], cmap='viridis',
+                                   transform=ccrs.PlateCarree(), s=1)
+                fig.colorbar(scatter, ax=ax, orientation='vertical', label='Wind Speed (m/s)')
+                
+                ax.set_title(f'Wind Speed (Scatter) for {time}')
+                
+                plot_path = os.path.join(plots_dir, f'wind_scatter_{time.strftime("%Y%m%d%H%M")}.png')
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close(fig)
+                print(f"Saved fallback plot: {plot_path}")
 
     except Exception as e:
         print(f"Error creating visualizations: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         conn.close()
 
