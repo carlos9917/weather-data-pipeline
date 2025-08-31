@@ -117,7 +117,7 @@ def process_gfs_data_zarr(date_str, cycle):
             ds_precip = xr.open_dataset(file_path, engine="cfgrib",
                                          backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'tp'}})
             ds_cloud = xr.open_dataset(file_path, engine="cfgrib",
-                                       backend_kwargs={'filter_by_keys': {'typeOfLevel': 'atmosphere', 'shortName': 'tcc'}})
+                                       backend_kwargs={'filter_by_keys': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'}})
             ds_pwat = xr.open_dataset(file_path, engine="cfgrib",
                                       backend_kwargs={'filter_by_keys': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'}})
             ds_prmsl = xr.open_dataset(file_path, engine="cfgrib",
