@@ -1,0 +1,136 @@
+---
+title: "Weather Data Pipeline Implementation"
+author: "Gemini"
+format: 
+  html:
+    toc: true
+    theme: cosmo
+---
+
+## Introduction
+
+This document details the implementation of a weather data processing pipeline with focus on GNSS meteorology. 
+The primary goal of this pipeline is to ingest raw GRIB2 forecast data, process it into a structured format, and store it for analysis and visualization.
+
+A key feature of the current implementation is its dual-backend storage system, which provides the flexibility to store processed data in either a **DuckDB** database or a **Zarr** store. This allows users to choose the storage format that best suits their specific needs for data access patterns, scalability, and ecosystem compatibility.
+
+## Parameter Selection for GNSS Meteorology
+
+The pipeline is configured to process specific atmospheric variables that are crucial for **Global Navigation Satellite System (GNSS) meteorology**.
+
+### What is GNSS Meteorology?
+
+GNSS meteorology is a technique that uses the signals from satellites (like GPS, Galileo, etc.) to measure the amount of water vapor in the atmosphere. When GNSS signals travel from a satellite to a ground-based receiver, they are delayed by the atmosphere. This delay, known as the Zenith Tropospheric Delay (ZTD), has two main components: a "dry" part caused by all atmospheric gases and a "wet" part caused almost entirely by water vapor.
+
+By precisely measuring the total delay and subtracting the well-understood dry component (which can be calculated from surface pressure), scientists can isolate the wet delay. This wet delay is directly proportional to the total amount of water vapor in the column of atmosphere above the receiver. This quantity is called **Precipitable Water Vapor (PWV)**.
+
+GNSS provides a continuous, all-weather, high-resolution measurement of atmospheric water vapor, which is a critical variable for weather forecasting and climate monitoring.
+
+### Choice of Variables
+
+The variables selected for this pipeline are essential for both direct use in GNSS meteorology and for providing operational context:
+
+-   **`precipitable_water` (pwat)**: This is the primary variable of interest. Weather models like GFS provide a forecast of this value, which can be compared against the real-time measurements from a GNSS receiver for model validation or data assimilation.
+-   **`mean_sea_level_pressure` (prmsl)**: Surface pressure is required to calculate the "dry" part of the signal delay. Accurate pressure forecasts are vital for deriving accurate PWV from GNSS measurements.
+-   **`temperature` (t2m)**: Temperature influences the atmospheric density and the constants used in the PWV calculation.
+-   **`wind` (u_wind, v_wind)**: Wind fields are crucial for understanding the transport of water vapor and for forecasting where moisture will move.
+-   **`precipitation` (tp)** and **`cloud_cover` (tcc)**: These variables provide operational context. They help meteorologists understand whether the atmospheric water vapor is likely to result in rain or cloud formation, which is essential for decision-making.
+
+## System Architecture
+
+### Data Processing Logic
+
+The core logic resides in `data_processing/process_data.py`. The script is designed to be modular, with distinct functions for handling each storage backend.
+
+#### Main Dispatcher
+
+The `process_gfs_data` function acts as a dispatcher. It reads the `OUTPUT_FORMAT` from the configuration and calls the appropriate processing function (`process_gfs_data_duckdb` or `process_gfs_data_zarr`).
+
+```python
+# In data_processing/process_data.py
+def process_gfs_data(date_str, cycle):
+    """
+    Processes raw GFS data and stores it based on the OUTPUT_FORMAT.
+    """
+    if OUTPUT_FORMAT == "duckdb":
+        process_gfs_data_duckdb(date_str, cycle)
+    elif OUTPUT_FORMAT == "zarr":
+        process_gfs_data_zarr(date_str, cycle)
+    else:
+        raise ValueError(f"Unsupported OUTPUT_FORMAT: {OUTPUT_FORMAT}")
+```
+
+#### Zarr Storage (`process_gfs_data_zarr`)
+
+1.  **File Iteration**: The function iterates through the raw GRIB2 files for a given date and cycle.
+2.  **Data Loading**: For each file, `xarray` and the `cfgrib` engine are used to open datasets for the relevant atmospheric variables.
+3.  **Data Merging & Calculation**: The individual datasets are merged into a single `xarray.Dataset`. New variables, such as `wind_speed` and `wind_direction`, are calculated.
+4.  **Append to Zarr**: The processed `xarray.Dataset` is appended to the Zarr store specified by `ZARR_STORE_PATH` along the `time` dimension.
+
+#### DuckDB Storage (`process_gfs_data_duckdb`)
+
+1.  **Database Connection**: A connection to the DuckDB database file is established.
+2.  **Table Creation**: A table named `gfs_data` is created if it doesn't already exist.
+3.  **Data Processing**: The data loading and calculation steps are identical to the Zarr implementation.
+4.  **DataFrame Conversion**: The `xarray.Dataset` is converted into a `pandas.DataFrame`.
+5.  **Data Insertion**: The DataFrame is inserted into the `gfs_data` table.
+
+### Regional Model Integration (Placeholder)
+
+*(This section will be updated once the regional model for Northern Europe/Scandinavia is integrated into the pipeline. The architecture will be extended to support ingesting and processing this second data source, likely involving a separate processing script and storage structure to accommodate the higher resolution data.)*
+
+## Usage
+
+### Configuration
+
+The storage backend is controlled by the `OUTPUT_FORMAT` variable in `config.py`.
+
+```python
+# In config.py
+
+# "duckdb" or "zarr"
+OUTPUT_FORMAT = "zarr" 
+```
+
+### Running the Pipeline
+
+The primary way to run the pipeline is using the `scr/run_pipeline.sh` script, which orchestrates the download and processing steps.
+
+The script has three modes:
+
+1.  **`default`**: Automatically determines the latest available GFS cycle and runs the pipeline for it. This is the most common use case for automated runs.
+    ```bash
+    ./scr/run_pipeline.sh default
+    ```
+
+2.  **`manual`**: Allows you to run the pipeline for a specific date and cycle. This is useful for reprocessing historical data or debugging.
+    ```bash
+    ./scr/run_pipeline.sh manual --date 20231027 --cycle 12
+    ```
+
+3.  **`scheduler`**: Runs the pipeline in a continuous loop, waiting 6 hours between each run. This is intended for a 24/7 operational deployment.
+    ```bash
+    ./scr/run_pipeline.sh scheduler
+    ```
+
+For direct processing without orchestration, you can run the `process_data.py` script:
+
+```bash
+python data_processing/process_data.py --date 20231027 --cycle 12
+```
+
+## Visualization (Placeholder)
+
+*(This section will be updated once the visualization components are implemented. The plan is to produce time-stepped map visualizations of the key parameters (e.g., precipitable water, wind vectors). An interactive web-based dashboard using a tool like Dash or Bokeh is being considered to allow for exploration of the forecast data.)*
+
+## Dependencies
+
+The key Python libraries used in this pipeline are:
+
+-   **`xarray`**: For handling multi-dimensional labeled data.
+-   **`cfgrib`**: The engine used by xarray to read GRIB files.
+-   **`zarr`**: For chunked, compressed, N-dimensional array storage.
+-   **`duckdb`**: For the file-based analytical SQL database.
+-   **`pandas`**: Used for converting data before inserting into DuckDB.
+
+All required dependencies are listed in the `requirements.txt` file.
