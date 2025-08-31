@@ -23,8 +23,8 @@ try:
     ZARR_STORE_PATH = os.path.join(PROJECT_ROOT, ZARR_PATH_REL)
 except ImportError:
     # Fallback configuration if config file is not available
-    DATABASE_PATH = os.path.join(PROJECT_ROOT, "data/processed/weather_data.db")
-    ZARR_STORE_PATH = os.path.join(PROJECT_ROOT, "data/processed/weather_data.zarr")
+    DATABASE_PATH = os.path.join(PROJECT_ROOT, "data/processed/gfs_data.duckdb")
+    ZARR_STORE_PATH = os.path.join(PROJECT_ROOT, "data/processed/gfs_data.zarr")
     OUTPUT_FORMAT = "duckdb"  # or "zarr"
     EUROPE_BOUNDS = {
         'lon_min': -10, 'lon_max': 30,
