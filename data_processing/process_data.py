@@ -23,7 +23,6 @@ def process_gfs_data_duckdb(date_str, cycle):
         return
 
     conn = duckdb.connect(DATABASE_PATH)
-    # Define the full schema including all possible columns
     table_schema = """
         CREATE TABLE IF NOT EXISTS gfs_data (
             time TIMESTAMP,
@@ -41,9 +40,7 @@ def process_gfs_data_duckdb(date_str, cycle):
         );
     """
     conn.execute(table_schema)
-    # Get the list of columns from the schema to ensure DataFrame consistency
     db_columns = [col[0] for col in conn.execute("DESCRIBE gfs_data;").fetchall()]
-
 
     for file_name in sorted(os.listdir(raw_data_dir)):
         if (file_name.endswith(".grib2") or file_name.startswith("gfs.")) and not file_name.endswith(".idx"):
@@ -73,33 +70,27 @@ def process_gfs_data_duckdb(date_str, cycle):
 
                 ds = xr.merge(datasets, compat='override')
 
-                # Calculate wind speed and direction if wind variables are present
                 if 'u100' in ds and 'v100' in ds:
                     ds['wind_speed'] = (ds['u100']**2 + ds['v100']**2)**0.5
                     ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
 
-                # Dynamically create the rename mapping based on variables present in the dataset
                 rename_map = {
-                    'valid_time': 'time',
-                    'u100': 'u_wind',
-                    'v100': 'v_wind',
-                    't2m': 'temperature',
-                    'tp': 'precipitation',
-                    'tcc': 'cloud_cover',
-                    'pwat': 'precipitable_water',
+                    'u100': 'u_wind', 'v100': 'v_wind', 't2m': 'temperature',
+                    'tp': 'precipitation', 'tcc': 'cloud_cover', 'pwat': 'precipitable_water',
                     'prmsl': 'mean_sea_level_pressure'
                 }
                 actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables or k in ds.coords}
                 ds = ds.rename(actual_rename_map)
 
+                if 'valid_time' in ds.coords and 'time' not in ds.coords:
+                    ds = ds.rename({'valid_time': 'time'})
+
                 df = ds.to_dataframe().reset_index()
 
-                # Ensure DataFrame has all columns required by the DB schema, filling missing with NaN
                 for col in db_columns:
                     if col not in df.columns:
                         df[col] = np.nan
                 
-                # Select and order columns for insertion
                 df = df[db_columns]
 
                 conn.register('gfs_df', df)
@@ -154,19 +145,16 @@ def process_gfs_data_zarr(date_str, cycle):
                 ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
             
             rename_map = {
-                'valid_time': 'time',
-                'u100': 'u_wind',
-                'v100': 'v_wind',
-                't2m': 'temperature',
-                'tp': 'precipitation',
-                'tcc': 'cloud_cover',
-                'pwat': 'precipitable_water',
+                'u100': 'u_wind', 'v100': 'v_wind', 't2m': 'temperature',
+                'tp': 'precipitation', 'tcc': 'cloud_cover', 'pwat': 'precipitable_water',
                 'prmsl': 'mean_sea_level_pressure'
             }
             actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables or k in ds.coords}
             ds = ds.rename(actual_rename_map)
+
+            if 'valid_time' in ds.coords and 'time' not in ds.coords:
+                ds = ds.rename({'valid_time': 'time'})
             
-            # Promote the 'time' coordinate to a dimension to allow appending
             if 'time' in ds.coords and 'time' not in ds.dims:
                 ds = ds.expand_dims('time')
 
@@ -189,7 +177,7 @@ def process_gfs_data(date_str, cycle):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process GFS data and save to DuckDB or Zarr.")
     parser.add_argument("--date", required=True, help="Date in YYYYMMDD format.")
-    parser.add_argument("--cycle", required=True, help="Cycle (00, 06, 12, 18).")
+    parser.add_rightument("--cycle", required=True, help="Cycle (00, 06, 12, 18).")
     args = parser.parse_args()
 
     process_gfs_data(args.date, args.cycle)
