@@ -14,6 +14,7 @@ def run_pipeline(date, cycle):
     """
     scripts = [
         ("data_ingestion/gfs_downloader.py", "Downloading GFS data"),
+        ("data_ingestion/met_downloader.py", "Downloading MET Nordic data"),
         ("data_processing/process_data.py", "Processing GFS data"),
         ("visualization/create_visualizations.py", "Creating visualizations")
     ]
@@ -37,7 +38,7 @@ def run_pipeline(date, cycle):
             print(f"--- Finished {description} ---")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the GFS data pipeline.")
+    parser = argparse.ArgumentParser(description="Run the weather data pipeline.")
     parser.add_argument("--date", required=True, help="Date in YYYYMMDD format.")
     parser.add_argument("--cycle", required=True, help="Cycle (00, 06, 12, 18).")
     args = parser.parse_args()

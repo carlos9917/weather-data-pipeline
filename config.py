@@ -23,6 +23,10 @@ EUROPE_BOUNDS = {
 # Format: gfs.t{cycle}z.pgrb2.0p25.f{forecast_hour:03d}
 GFS_FILE_TEMPLATE = "gfs.t{cycle}z.pgrb2.0p25.f{forecast_hour:03d}"
 
+# MET Nordic data configuration
+MET_NORDIC_BASE_URL = "https://thredds.met.no/thredds/fileServer/metpparchive"
+MET_NORDIC_FILE_TEMPLATE = "met_forecast_1_0km_nordic_{date}T{cycle}Z.nc"
+
 # Variables needed for wind power density and temperature
 GFS_VARIABLES = [
     'UGRD:100 m above ground',  # U-component of wind at 100m
