@@ -31,7 +31,9 @@ GFS_VARIABLES = [
 ]
 
 # Database settings
+OUTPUT_FORMAT = "zarr" # "duckdb" or "zarr"
 DATABASE_PATH = "data/processed/gfs_data.duckdb"
+ZARR_STORE_PATH = "data/processed/gfs_data.zarr"
 
 # Logging settings
 LOG_LEVEL = "INFO"

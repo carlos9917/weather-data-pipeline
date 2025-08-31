@@ -18,6 +18,7 @@ dash-core-components
 dash-html-components
 dash-table
 dask
+duckdb
 eccodes
 eccodeslib
 eckitlib
@@ -68,5 +69,5 @@ urllib3
 watchdog
 werkzeug
 xarray
+zarr
 zipp
-duckdb
