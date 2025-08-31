@@ -9,7 +9,7 @@ import argparse
 from pathlib import Path
 
 # Add the project root to the Python path
-project_root = Path(__file__).parent.absolute()
+project_root = Path(__file__).parent.parent.absolute()
 sys.path.insert(0, str(project_root))
 
 def check_requirements():
@@ -42,20 +42,20 @@ def check_data_availability():
     
     # Check GFS data
     gfs_paths = [
-        "data/processed/weather_data.db",
-        "data/processed/weather_data.zarr"
+        project_root / "data/processed/gfs_data.duckdb",
+        project_root / "data/processed/gfs_data.zarr"
     ]
     
     gfs_available = any(os.path.exists(path) for path in gfs_paths)
     
     # Check MEPS data
-    meps_raw_path = "data/raw/met"
+    meps_raw_path = project_root / "data/raw/met"
     meps_processed_paths = [
-        "data/processed/weather_data.db",  # MEPS data could be in same DB
-        "data/processed/meps_weather_data.zarr"
+        project_root / "data/processed/gfs_data.duckdb",  # MEPS data could be in same DB
+        project_root / "data/processed/meps_weather_data.zarr"
     ]
     
-    meps_raw_available = os.path.exists(meps_raw_path) and len(os.listdir(meps_raw_path)) > 0
+    meps_raw_available = os.path.exists(meps_raw_path) and len(os.listdir(meps_raw_path)) > 0 if os.path.exists(meps_raw_path) else False
     meps_processed_available = any(os.path.exists(path) for path in meps_processed_paths)
     
     print(f"GFS data available: {'Yes' if gfs_available else 'No'}")
@@ -68,7 +68,8 @@ def check_data_availability():
         print("1. Download GFS data using: python data_ingestion/gfs_downloader.py --date YYYYMMDD --cycle HH")
         print("2. Process GFS data using: python data_processing/process_data.py --date YYYYMMDD --cycle HH")
         print("3. Download MEPS data using: python data_ingestion/met_downloader.py --date YYYYMMDD --cycle 06")
-        print("4. Process MEPS data using: python data_processing/process_meps_data.py --date YYYYMMDD --cycle 06")
+        # The script for processing MEPS data is currently missing.
+        # print("4. Process MEPS data using: python data_processing/process_meps_data.py --date YYYYMMDD --cycle 06")
         
         return False
     
@@ -94,29 +95,33 @@ def run_dashboard(host='0.0.0.0', port=8050, debug=True):
         print(f"Error starting dashboard: {e}")
         sys.exit(1)
 
-def process_sample_data():
-    """Process sample data if available"""
-    print("Looking for sample data to process...")
-    
-    # Look for recent MEPS data
-    meps_raw_path = Path("data/raw/met")
-    if meps_raw_path.exists():
-        date_dirs = sorted([d for d in meps_raw_path.iterdir() if d.is_dir()])
-        if date_dirs:
-            latest_date = date_dirs[-1]
-            cycle_dirs = [d for d in latest_date.iterdir() if d.is_dir()]
-            if cycle_dirs:
-                latest_cycle = cycle_dirs[0]
-                date_str = latest_date.name
-                cycle_str = latest_cycle.name
-                
-                print(f"Processing MEPS data for {date_str} cycle {cycle_str}")
-                try:
-                    from data_processing.process_meps_data import process_meps_data
-                    process_meps_data(date_str, cycle_str)
-                    print("MEPS data processing completed")
-                except Exception as e:
-                    print(f"Error processing MEPS data: {e}")
+# NOTE: The process_sample_data function is commented out because it refers to
+# a non-existent module: `data_processing.process_meps_data`.
+# This function can be enabled once that module is created.
+#
+# def process_sample_data():
+#     """Process sample data if available"""
+#     print("Looking for sample data to process...")
+#     
+#     # Look for recent MEPS data
+#     meps_raw_path = project_root / "data/raw/met"
+#     if meps_raw_path.exists():
+#         date_dirs = sorted([d for d in meps_raw_path.iterdir() if d.is_dir()])
+#         if date_dirs:
+#             latest_date = date_dirs[-1]
+#             cycle_dirs = [d for d in latest_date.iterdir() if d.is_dir()]
+#             if cycle_dirs:
+#                 latest_cycle = cycle_dirs[0]
+#                 date_str = latest_date.name
+#                 cycle_str = latest_cycle.name
+#                 
+#                 print(f"Processing MEPS data for {date_str} cycle {cycle_str}")
+#                 try:
+#                     from data_processing.process_meps_data import process_meps_data
+#                     process_meps_data(date_str, cycle_str)
+#                     print("MEPS data processing completed")
+#                 except Exception as e:
+#                     print(f"Error processing MEPS data: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="Start the Interactive Weather Dashboard")
@@ -140,7 +145,8 @@ def main():
     
     # Process sample data if requested
     if args.process_sample:
-        process_sample_data()
+        print("Warning: --process-sample is currently disabled as the required script is missing.")
+        # process_sample_data()
     
     # Check data availability
     data_available = check_data_availability()

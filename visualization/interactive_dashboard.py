@@ -13,14 +13,18 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # Add the project root to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 
 try:
-    from config import DATABASE_PATH, ZARR_STORE_PATH, OUTPUT_FORMAT, EUROPE_BOUNDS
+    from config import DATABASE_PATH as DB_PATH_REL, ZARR_STORE_PATH as ZARR_PATH_REL, OUTPUT_FORMAT, EUROPE_BOUNDS
+    # Make paths absolute
+    DATABASE_PATH = os.path.join(PROJECT_ROOT, DB_PATH_REL)
+    ZARR_STORE_PATH = os.path.join(PROJECT_ROOT, ZARR_PATH_REL)
 except ImportError:
     # Fallback configuration if config file is not available
-    DATABASE_PATH = "data/processed/weather_data.db"
-    ZARR_STORE_PATH = "data/processed/weather_data.zarr"
+    DATABASE_PATH = os.path.join(PROJECT_ROOT, "data/processed/weather_data.db")
+    ZARR_STORE_PATH = os.path.join(PROJECT_ROOT, "data/processed/weather_data.zarr")
     OUTPUT_FORMAT = "duckdb"  # or "zarr"
     EUROPE_BOUNDS = {
         'lon_min': -10, 'lon_max': 30,
@@ -72,7 +76,7 @@ class WeatherDataLoader:
             datasets.append("GFS (Global)")
             
         # Check MEPS data
-        meps_path = "data/raw/met"
+        meps_path = os.path.join(PROJECT_ROOT, "data/raw/met")
         if os.path.exists(meps_path):
             datasets.append("MEPS (Nordic High-Res)")
             
@@ -104,7 +108,7 @@ class WeatherDataLoader:
     def _get_meps_times(self):
         """Get available times from MEPS data"""
         times = []
-        meps_path = "data/raw/met"
+        meps_path = os.path.join(PROJECT_ROOT, "data/raw/met")
         
         if os.path.exists(meps_path):
             for date_dir in sorted(os.listdir(meps_path))[-10:]:  # Last 10 days
@@ -160,7 +164,7 @@ class WeatherDataLoader:
             date_str = dt.strftime('%Y%m%d')
             cycle_str = dt.strftime('%H')
             
-            meps_dir = os.path.join("data", "raw", "met", date_str, cycle_str)
+            meps_dir = os.path.join(PROJECT_ROOT, "data", "raw", "met", date_str, cycle_str)
             
             if not os.path.exists(meps_dir):
                 return pd.DataFrame()
