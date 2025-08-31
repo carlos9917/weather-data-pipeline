@@ -89,7 +89,7 @@ def process_gfs_data_duckdb(date_str, cycle):
                     'pwat': 'precipitable_water',
                     'prmsl': 'mean_sea_level_pressure'
                 }
-                actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
+                actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables or k in ds.coords}
                 ds = ds.rename(actual_rename_map)
 
                 df = ds.to_dataframe().reset_index()
@@ -154,6 +154,7 @@ def process_gfs_data_zarr(date_str, cycle):
                 ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
             
             rename_map = {
+                'valid_time': 'time',
                 'u100': 'u_wind',
                 'v100': 'v_wind',
                 't2m': 'temperature',
@@ -162,9 +163,13 @@ def process_gfs_data_zarr(date_str, cycle):
                 'pwat': 'precipitable_water',
                 'prmsl': 'mean_sea_level_pressure'
             }
-            actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
+            actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables or k in ds.coords}
             ds = ds.rename(actual_rename_map)
             
+            # Promote the 'time' coordinate to a dimension to allow appending
+            if 'time' in ds.coords and 'time' not in ds.dims:
+                ds = ds.expand_dims('time')
+
             ds.to_zarr(ZARR_STORE_PATH, mode='a', append_dim="time")
 
         except Exception as e:
