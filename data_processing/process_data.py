@@ -116,7 +116,8 @@ def process_gfs_data_zarr(date_str, cycle):
         try:
             datasets = []
             variable_filters = {
-                'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 
+                'wind100': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 
+                'wind10': {'typeOfLevel': 'heightAboveGround', 'level': 10}, 
                 'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
                 'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 
                 'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},

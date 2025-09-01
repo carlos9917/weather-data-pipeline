@@ -37,6 +37,7 @@ def download_gfs_data(date_str, cycle):
 
         params = {
             'file': file_name,
+            'lev_10_m_above_ground': 'on',
             'lev_100_m_above_ground': 'on',
             'var_UGRD': 'on',
             'var_VGRD': 'on',
@@ -56,6 +57,18 @@ def download_gfs_data(date_str, cycle):
             'bottomlat': str(EUROPE_BOUNDS['lat_min']),
             'dir': f'/gfs.{date_str}/{cycle}/atmos'
         }
+
+
+
+
+params = {
+         'file': file_name,
++        'lev_10_m_above_ground': 'on',
++        'var_UGRD': 'on',
++        'var_VGRD': 'on',
+         'lev_100_m_above_ground': 'on',
+         'var_UGRD': 'on',
+         'var_VGRD': 'on',
 
         try:
             response = requests.get(NOMADS_GRIB_FILTER_URL, params=params, stream=True)

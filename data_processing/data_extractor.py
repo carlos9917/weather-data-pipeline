@@ -121,9 +121,12 @@ class GFSDataExtractor:
             # The key is the name we expect cfgrib to assign to the variable.
             target_variables = {
                 't2m':  {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2, 'shortName': '2t'}},
+                'u10':  {'filter_by_keys': {'typeOfLevel': 'heightAboveGround','level': 10, 'shortName': '10u'}},
+                'v10':  {'filter_by_keys': {'typeOfLevel': 'heightAboveGround','level': 10, 'shortName': '10v'}},
                 'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': '100u'}},
                 'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': '100v'}},
                 'sp':   {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
+
             }
 
             ds_list = []
@@ -179,6 +182,8 @@ class GFSDataExtractor:
                 'forecast_hour': forecast_hour,
                 'lat': df['latitude'],
                 'lon': df['longitude'],
+                'u_wind_10m': df['u10'],
+                'v_wind_10m': df['v10'],
                 'u_wind_100m': df['u100'],
                 'v_wind_100m': df['v100'],
                 'temp_2m': df['t2m'],
@@ -208,6 +213,7 @@ class GFSDataExtractor:
             # Select relevant columns for database
             db_columns = [
                 'forecast_date', 'cycle', 'forecast_hour', 'lat', 'lon',
+                'u_wind_10m','u_wind_10m',
                 'u_wind_100m', 'v_wind_100m', 'temp_2m', 'wind_power_density'
             ]
             
