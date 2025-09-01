@@ -37,7 +37,7 @@ GFS_VARIABLES = [
     'TCDC:entire atmosphere',   # Total cloud cover
     'PRATE:surface',            # Precipitation rate
     'PRES:surface',              # Surface pressure
-    'TKE:10 m above ground',    # Turbulent Kinetic Energy at 10m
+    'TKE:planetary boundary layer',    # Turbulent Kinetic Energy at 10m
     'UFLX:surface',             # U-component of momentum flux at surface
     'VFLX:surface'              # V-component of momentum flux at surface
 ]
