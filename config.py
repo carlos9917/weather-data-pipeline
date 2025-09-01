@@ -36,7 +36,7 @@ GFS_VARIABLES = [
     'TMP:2 m above ground',     # Temperature at 2m
     'TCDC:entire atmosphere',   # Total cloud cover
     'PRATE:surface',            # Precipitation rate
-    'SP:surface'                # Surface pressure
+    'PRES:surface'              # Surface pressure
 ]
 
 # Database settings
