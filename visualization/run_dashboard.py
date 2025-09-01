@@ -89,10 +89,10 @@ def main():
     print("Interactive Weather Dashboard Startup")
     print("=" * 50)
     
-    if not check_requirements():
-        sys.exit(1)
+    #if not check_requirements():
+    #    sys.exit(1)
     
-    print("✓ All required packages are installed.")
+    #print("✓ All required packages are installed.")
     
     data_available = check_data_availability()
     
