@@ -122,7 +122,7 @@ def process_gfs_data_zarr(date_str, cycle):
                 'sp': {'typeOfLevel': 'surface', 'shortName': 'sp'},
                 'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 
                 'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
-                'prate': {'typeOfLevel': 'surface', 'shortName': 'prate'},
+                'prate': {'stepType': 'instant', 'typeOfLevel': 'surface', 'shortName': 'prate'},
             }
             
             for var, filter_keys in variable_filters.items():
