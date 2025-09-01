@@ -116,12 +116,13 @@ def process_gfs_data_zarr(date_str, cycle):
         try:
             datasets = []
             variable_filters = {
-                'wind': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 
+                'wind100': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 
+                'wind10': {'typeOfLevel': 'heightAboveGround', 'level': 10}, 
                 'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
+                'sp': {'typeOfLevel': 'surface', 'shortName': 'sp'},
                 'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 
                 'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
-                'pwat': {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'}, 
-                'prmsl': {'typeOfLevel': 'meanSea', 'shortName': 'prmsl'}
+                'prate': {'stepType': 'instant', 'typeOfLevel': 'surface', 'shortName': 'prate'},
             }
             
             for var, filter_keys in variable_filters.items():
@@ -183,14 +184,18 @@ def process_gfs_data_zarr(date_str, cycle):
                 continue
 
             # Calculate wind speed and direction if wind components are present
+            if 'u10' in ds and 'v10' in ds:
+                ds['wind_speed_10m'] = (ds['u10']**2 + ds['v10']**2)**0.5
+                ds['wind_direction_10m'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u10'], ds['v10'])
             if 'u100' in ds and 'v100' in ds:
-                ds['wind_speed'] = (ds['u100']**2 + ds['v100']**2)**0.5
-                ds['wind_direction'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
+                ds['wind_speed_100m'] = (ds['u100']**2 + ds['v100']**2)**0.5
+                ds['wind_direction_100m'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
             
             # Rename variables to standard names
             rename_map = {
-                'u100': 'u_wind', 'v100': 'v_wind', 't2m': 'temperature', 'tp': 'precipitation',
-                'tcc': 'cloud_cover', 'pwat': 'precipitable_water', 'prmsl': 'mean_sea_level_pressure'
+                'u10': 'u_wind_10m', 'v10': 'v_wind_10m',
+                'u100': 'u_wind_100m', 'v100': 'v_wind_100m', 't2m': 'temperature', 'tp': 'precipitation',
+                'tcc': 'cloud_cover', 'prate': 'precipitation_rate', 'sp': 'surface_pressure'
             }
             actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
             ds = ds.rename(actual_rename_map)

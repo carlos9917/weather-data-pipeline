@@ -37,18 +37,6 @@ def download_gfs_data(date_str, cycle):
 
         params = {
             'file': file_name,
-            'lev_100_m_above_ground': 'on',
-            'var_UGRD': 'on',
-            'var_VGRD': 'on',
-            'lev_2_m_above_ground': 'on',
-            'var_TMP': 'on',
-            'lev_surface': 'on',
-            'var_APCP': 'on',
-            'lev_entire_atmosphere': 'on',
-            'var_TCDC': 'on',
-            'var_PWAT': 'on',
-            'lev_mean_sea_level': 'on',
-            'var_PRMSL': 'on',
             'subregion': '',
             'leftlon': str(EUROPE_BOUNDS['lon_min']),
             'rightlon': str(EUROPE_BOUNDS['lon_max']),
@@ -56,6 +44,19 @@ def download_gfs_data(date_str, cycle):
             'bottomlat': str(EUROPE_BOUNDS['lat_min']),
             'dir': f'/gfs.{date_str}/{cycle}/atmos'
         }
+
+        for var in GFS_VARIABLES:
+            parts = var.split(':')
+            var_name = parts[0]
+            level = parts[1].strip()
+            params[f'var_{var_name}'] = 'on'
+            if 'm above ground' in level:
+                level_value = level.split(' ')[0]
+                params[f'lev_{level_value}_m_above_ground'] = 'on'
+            elif 'surface' in level:
+                params['lev_surface'] = 'on'
+            elif 'entire atmosphere' in level:
+                params['lev_entire_atmosphere'] = 'on'
 
         try:
             response = requests.get(NOMADS_GRIB_FILTER_URL, params=params, stream=True)
