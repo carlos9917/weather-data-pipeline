@@ -68,7 +68,7 @@ def plot_map(ds_time, config, plots_dir, time_str):
     Creates and saves a single map visualization for a given variable and time.
     """
     var_name = config.get('speed_var', list(PLOT_CONFIG.keys())[list(PLOT_CONFIG.values()).index(config)])
-    data = ds_time[var_name]
+    data = ds_time[var_name].squeeze()
 
     if config.get('convert_to_celsius', False):
         data = data - 273.15
@@ -99,8 +99,8 @@ def plot_map(ds_time, config, plots_dir, time_str):
 
     # Plot wind barbs for wind variables
     if 'u_var' in config and 'v_var' in config:
-        u_wind = ds_time[config['u_var']]
-        v_wind = ds_time[config['v_var']]
+        u_wind = ds_time[config['u_var']].squeeze()
+        v_wind = ds_time[config['v_var']].squeeze()
         
         # Subsample for clarity
         skip = max(1, len(ds_time['longitude']) // 25)
