@@ -40,7 +40,7 @@ def calculate_wind_gust(zarr_path, gust_factor=1.5):
 if __name__ == '__main__':
     # The user mentioned the zarr data is in a path like data/processed/gfs_data.zarr
     # Note: This path might need to be adjusted depending on where the script is run from.
-    zarr_store_path = '/home/tenantadmin/weather-data-pipeline/data/processed/gfs_data.zarr'
+    zarr_store_path = '/media/cap/extra_work/repos/weather-data-pipeline/data/processed/gfs_data.zarr'
     
     print(f"Calculating wind gust from: {zarr_store_path}")
     
