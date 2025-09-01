@@ -31,7 +31,12 @@ MET_NORDIC_FILE_TEMPLATE = "met_forecast_1_0km_nordic_{date}T{cycle}Z.nc"
 GFS_VARIABLES = [
     'UGRD:100 m above ground',  # U-component of wind at 100m
     'VGRD:100 m above ground',  # V-component of wind at 100m
-    'TMP:2 m above ground'      # Temperature at 2m
+    'UGRD:10 m above ground',   # U-component of wind at 10m
+    'VGRD:10 m above ground',   # V-component of wind at 10m
+    'TMP:2 m above ground',     # Temperature at 2m
+    'TCDC:entire atmosphere',   # Total cloud cover
+    'PRATE:surface',            # Precipitation rate
+    'SP:surface'                # Surface pressure
 ]
 
 # Database settings

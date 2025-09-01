@@ -50,9 +50,16 @@ class GFSDataExtractor:
                     forecast_hour INTEGER,
                     lat DOUBLE,
                     lon DOUBLE,
+                    u_wind_10m DOUBLE,
+                    v_wind_10m DOUBLE,
+                    wind_direction_10m DOUBLE,
                     u_wind_100m DOUBLE,
                     v_wind_100m DOUBLE,
+                    wind_direction_100m DOUBLE,
                     temp_2m DOUBLE,
+                    total_cloud_cover DOUBLE,
+                    precipitation_rate DOUBLE,
+                    surface_pressure DOUBLE,
                     wind_power_density DOUBLE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -126,7 +133,8 @@ class GFSDataExtractor:
                 'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': '100u'}},
                 'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': '100v'}},
                 'sp':   {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
-
+                'tcc':  {'filter_by_keys': {'typeOfLevel': 'atmosphere', 'shortName': 'tcc'}},
+                'prate':{'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'prate'}},
             }
 
             ds_list = []
@@ -166,14 +174,19 @@ class GFSDataExtractor:
             df = ds_subset.to_dataframe().reset_index()
 
             # Calculate wind speed using correct variable names from cfgrib
-            wind_speed = np.sqrt(df['u100']**2 + df['v100']**2)
+            wind_speed_10m = np.sqrt(df['u10']**2 + df['v10']**2)
+            wind_speed_100m = np.sqrt(df['u100']**2 + df['v100']**2)
+
+            # Calculate wind direction
+            wind_direction_10m = (270 - np.rad2deg(np.arctan2(df['v10'], df['u10']))) % 360
+            wind_direction_100m = (270 - np.rad2deg(np.arctan2(df['v100'], df['u100']))) % 360
 
             # Calculate air density (rho) using the ideal gas law: rho = P / (R * T)
             R_specific = 287.058
             air_density = df['sp'] / (R_specific * df['t2m'])
 
             # Calculate wind power density (W/m^2)
-            wind_power_density = 0.5 * air_density * (wind_speed**3)
+            wind_power_density = 0.5 * air_density * (wind_speed_100m**3)
 
             # Prepare final DataFrame
             df_final = pd.DataFrame({
@@ -184,9 +197,14 @@ class GFSDataExtractor:
                 'lon': df['longitude'],
                 'u_wind_10m': df['u10'],
                 'v_wind_10m': df['v10'],
+                'wind_direction_10m': wind_direction_10m,
                 'u_wind_100m': df['u100'],
                 'v_wind_100m': df['v100'],
+                'wind_direction_100m': wind_direction_100m,
                 'temp_2m': df['t2m'],
+                'total_cloud_cover': df['tcc'],
+                'precipitation_rate': df['prate'],
+                'surface_pressure': df['sp'],
                 'wind_power_density': wind_power_density
             })
 
@@ -213,8 +231,10 @@ class GFSDataExtractor:
             # Select relevant columns for database
             db_columns = [
                 'forecast_date', 'cycle', 'forecast_hour', 'lat', 'lon',
-                'u_wind_10m','u_wind_10m',
-                'u_wind_100m', 'v_wind_100m', 'temp_2m', 'wind_power_density'
+                'u_wind_10m', 'v_wind_10m', 'wind_direction_10m',
+                'u_wind_100m', 'v_wind_100m', 'wind_direction_100m',
+                'temp_2m', 'total_cloud_cover', 'precipitation_rate', 'surface_pressure',
+                'wind_power_density'
             ]
             
             # Only keep columns that exist in the dataframe
