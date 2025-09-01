@@ -36,7 +36,10 @@ GFS_VARIABLES = [
     'TMP:2 m above ground',     # Temperature at 2m
     'TCDC:entire atmosphere',   # Total cloud cover
     'PRATE:surface',            # Precipitation rate
-    'PRES:surface'              # Surface pressure
+    'PRES:surface',              # Surface pressure
+    'TKE:10 m above ground',    # Turbulent Kinetic Energy at 10m
+    'UFLX:surface',             # U-component of momentum flux at surface
+    'VFLX:surface'              # V-component of momentum flux at surface
 ]
 
 # Database settings
