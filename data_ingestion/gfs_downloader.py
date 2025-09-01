@@ -57,6 +57,8 @@ def download_gfs_data(date_str, cycle):
                 params['lev_surface'] = 'on'
             elif 'entire atmosphere' in level:
                 params['lev_entire_atmosphere'] = 'on'
+            elif 'planetary boundary layer' in level:
+                params['lev_planetary_boundary_layer'] = 'on'
 
         try:
             response = requests.get(NOMADS_GRIB_FILTER_URL, params=params, stream=True)
