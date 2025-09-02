@@ -135,12 +135,14 @@ def update_time_slider(init_time):
 
     max_val = len(time_coords) - 1
     
-    # Create marks for every 3 hours
+    # Create marks for every 3 hours, ensuring `i` is within bounds
     marks = {}
-    for i in range(0, len(time_coords), 3):
-        # Calculate forecast hour relative to init_time
-        forecast_hour = (pd.to_datetime(time_coords[i]) - pd.to_datetime(init_time)).total_seconds() / 3600
-        marks[i] = f"{int(forecast_hour)}h"
+    if max_val > 0:
+        for i in range(0, len(time_coords), 3):
+            if i < len(time_coords):
+                # Calculate forecast hour relative to init_time
+                forecast_hour = (pd.to_datetime(time_coords[i]) - pd.to_datetime(init_time)).total_seconds() / 3600
+                marks[i] = f"{int(forecast_hour)}h"
 
     return max_val, marks, 0
 
