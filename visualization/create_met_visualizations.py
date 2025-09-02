@@ -57,8 +57,9 @@ PLOT_CONFIG = {
     }
 }
 
-def plot_map(ds_single, var_key, config, plots_dir, time_str, time_val):
-    data = ds_single[var_key]
+def plot_map(ds_single, config, plots_dir, time_str, time_val):
+    var_name = list(PLOT_CONFIG.keys())[list(PLOT_CONFIG.values()).index(config)]
+    data = ds_single[var_name]
 
     # Ensure 2D [lat, lon]
     for dim in data.dims:
@@ -140,7 +141,7 @@ def create_met_visualizations(date_str, cycle):
                 
                 if all(v in ds_single for v in required_vars):
                     try:
-                        plot_map(ds_single, var_key, config, plots_dir, time_str, time_val)
+                        plot_map(ds_single, config, plots_dir, time_str, time_val)
                     except Exception as e:
                         print(f"Failed to create plot for {var_key} at {time_str}: {e}")
                 else:
