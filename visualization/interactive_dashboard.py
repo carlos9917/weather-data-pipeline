@@ -130,6 +130,9 @@ def update_time_slider(init_time):
     ds_cycle = ds.sel(init_time=init_time)
     time_coords = ds_cycle.time.values
     
+    if len(time_coords) == 0:
+        return 0, {}, 0 # Handle case with no time steps
+
     max_val = len(time_coords) - 1
     
     # Create marks for every 3 hours
