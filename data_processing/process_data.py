@@ -236,10 +236,13 @@ def process_gfs_data_zarr(date_str, cycle):
             else:
                 print(f"Appending to existing Zarr store by merging")
                 try:
-                    # Open existing store, combine with new data, and overwrite
-                    # This is safer than appending a new dimension if coordinates mismatch
+                    # Open existing store and merge with new data
                     with xr.open_zarr(ZARR_STORE_PATH) as existing_ds:
-                        # Use combine_by_coords to handle merging along the new init_time dimension
+                        # Align coordinates, particularly for the 'time' dimension
+                        # This prevents issues if different cycles have slightly different time steps
+                        existing_ds, cycle_ds = xr.align(existing_ds, cycle_ds, join='outer')
+                        
+                        # Use combine_by_coords which is robust for this kind of merge
                         updated_ds = xr.combine_by_coords([existing_ds, cycle_ds])
                     
                     print("Writing updated dataset to Zarr store...")
@@ -248,8 +251,17 @@ def process_gfs_data_zarr(date_str, cycle):
 
                 except Exception as zarr_error:
                     print(f"Error updating Zarr store: {zarr_error}")
-                    print(f"Overwriting with new data as a fallback.")
-                    cycle_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+                    print("Attempting to merge with a different strategy.")
+                    try:
+                        with xr.open_zarr(ZARR_STORE_PATH) as existing_ds:
+                            # A simpler merge might work if alignment is the issue
+                            updated_ds = xr.merge([existing_ds, cycle_ds])
+                        updated_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+                        print("Successfully updated Zarr store with merge.")
+                    except Exception as merge_error:
+                        print(f"Merge also failed: {merge_error}")
+                        print("Overwriting with new data as a last resort.")
+                        cycle_ds.to_zarr(ZARR_STORE_PATH, mode='w')
                     
         except Exception as e:
             print(f"Error combining or writing datasets: {e}")
