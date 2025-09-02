@@ -18,7 +18,7 @@ def process_met_data_zarr(date_str, cycle):
     Processes raw MET data and appends it to a Zarr store, optimized for large files.
     """
     raw_data_dir = os.path.join('data', 'raw', 'met', date_str, cycle)
-    ZARR_STORE_PATH_MET = "data/processed/met_data.zarr"
+    ZARR_STORE_PATH_MET = f"data/processed/met_data_{date_str}_{cycle}.zarr"
     os.makedirs(os.path.dirname(ZARR_STORE_PATH_MET), exist_ok=True)
 
     if not os.path.exists(raw_data_dir):
