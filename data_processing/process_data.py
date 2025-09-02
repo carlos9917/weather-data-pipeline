@@ -206,11 +206,6 @@ def process_gfs_data_zarr(date_str, cycle):
             if 'time' in ds.coords and 'time' not in ds.dims:
                 ds = ds.expand_dims('time')
             
-            # Add init_time coordinate
-            init_time = pd.to_datetime(f"{date_str} {cycle}:00")
-            ds = ds.assign_coords(init_time=init_time)
-            ds = ds.expand_dims('init_time')
-
             all_datasets.append(ds)
 
         except Exception as e:
@@ -219,33 +214,42 @@ def process_gfs_data_zarr(date_str, cycle):
     # Now combine all datasets and write to Zarr
     if all_datasets:
         try:
-            print(f"Combining {len(all_datasets)} datasets...")
+            print(f"Combining {len(all_datasets)} datasets for cycle {date_str}/{cycle}...")
             
-            # Concatenate all datasets along time dimension
-            combined_ds = xr.concat(all_datasets, dim='time')
+            # Concatenate all datasets for the cycle along time dimension
+            cycle_ds = xr.concat(all_datasets, dim='time')
             
             # Sort by time to ensure proper ordering
-            combined_ds = combined_ds.sortby('time')
+            cycle_ds = cycle_ds.sortby('time')
+
+            # Add init_time coordinate to the combined cycle dataset
+            init_time = pd.to_datetime(f"{date_str} {cycle}:00")
+            cycle_ds = cycle_ds.assign_coords(init_time=init_time)
+            cycle_ds = cycle_ds.expand_dims('init_time')
             
             # Check if Zarr store exists
             zarr_exists = os.path.exists(ZARR_STORE_PATH)
             
             if not zarr_exists:
                 print(f"Creating new Zarr store at {ZARR_STORE_PATH}")
-                combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+                cycle_ds.to_zarr(ZARR_STORE_PATH, mode='w')
             else:
-                print(f"Appending to existing Zarr store")
+                print(f"Appending to existing Zarr store by merging")
                 try:
-                    existing_ds = xr.open_zarr(ZARR_STORE_PATH)
-                    if 'time' in existing_ds.dims:
-                        combined_ds.to_zarr(ZARR_STORE_PATH, mode='a', append_dim="time")
-                    else:
-                        print(f"Warning: Existing Zarr store doesn't have time dimension. Creating new store.")
-                        combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+                    # Open existing store, combine with new data, and overwrite
+                    # This is safer than appending a new dimension if coordinates mismatch
+                    with xr.open_zarr(ZARR_STORE_PATH) as existing_ds:
+                        # Use combine_by_coords to handle merging along the new init_time dimension
+                        updated_ds = xr.combine_by_coords([existing_ds, cycle_ds])
+                    
+                    print("Writing updated dataset to Zarr store...")
+                    updated_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+                    print("Successfully updated Zarr store.")
+
                 except Exception as zarr_error:
-                    print(f"Error accessing existing Zarr store: {zarr_error}")
-                    print(f"Creating new Zarr store.")
-                    combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+                    print(f"Error updating Zarr store: {zarr_error}")
+                    print(f"Overwriting with new data as a fallback.")
+                    cycle_ds.to_zarr(ZARR_STORE_PATH, mode='w')
                     
         except Exception as e:
             print(f"Error combining or writing datasets: {e}")
