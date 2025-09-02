@@ -116,8 +116,10 @@ def process_gfs_data_zarr(date_str, cycle):
             # Load variables individually or in compatible groups to avoid cfgrib merge errors
             datasets_to_merge = []
             variable_filters = [
-                {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': ['u', 'v']},
-                {'typeOfLevel': 'heightAboveGround', 'level': 10, 'shortName': ['u', 'v']},
+                {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'u'},
+                {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'v'},
+                {'typeOfLevel': 'heightAboveGround', 'level': 10, 'shortName': 'u'},
+                {'typeOfLevel': 'heightAboveGround', 'level': 10, 'shortName': 'v'},
                 {'typeOfLevel': 'heightAboveGround', 'level': 2, 'shortName': 't'},
                 {'typeOfLevel': 'surface', 'shortName': 'sp'},
                 {'typeOfLevel': 'surface', 'shortName': 'tp'},
