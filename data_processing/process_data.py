@@ -123,6 +123,7 @@ def process_gfs_data_zarr(date_str, cycle):
                 'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 
                 'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
                 'prate': {'stepType': 'instant', 'typeOfLevel': 'surface', 'shortName': 'prate'},
+                'gust': {'typeOfLevel': 'surface', 'shortName': 'gust'},
             }
             
             for var, filter_keys in variable_filters.items():
@@ -195,7 +196,8 @@ def process_gfs_data_zarr(date_str, cycle):
             rename_map = {
                 'u10': 'u_wind_10m', 'v10': 'v_wind_10m',
                 'u100': 'u_wind_100m', 'v100': 'v_wind_100m', 't2m': 'temperature', 'tp': 'precipitation',
-                'tcc': 'cloud_cover', 'prate': 'precipitation_rate', 'sp': 'surface_pressure'
+                'tcc': 'cloud_cover', 'prate': 'precipitation_rate', 'sp': 'surface_pressure',
+                'gust': 'wind_gust'
             }
             actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
             ds = ds.rename(actual_rename_map)
