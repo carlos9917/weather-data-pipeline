@@ -13,7 +13,7 @@ from config import OUTPUT_FORMAT
 
 def process_met_data_zarr(date_str, cycle):
     """
-    Processes raw MET data and appends it to a Zarr store.
+    Processes raw MET data and appends it to a Zarr store, optimized for large files.
     """
     raw_data_dir = os.path.join('data', 'raw', 'met', date_str, cycle)
     ZARR_STORE_PATH_MET = "data/processed/met_data.zarr"
@@ -30,49 +30,39 @@ def process_met_data_zarr(date_str, cycle):
         print(f"No NetCDF files found in {raw_data_dir}")
         return
 
-    all_datasets = []
-    for file_path in all_files:
-        print(f"Processing {file_path}")
-        try:
-            ds = xr.open_dataset(file_path)
-            all_datasets.append(ds)
-        except Exception as e:
-            print(f"Error processing {file_path}: {e}")
-
-    if not all_datasets:
-        print("No valid datasets to process.")
-        return
+    # Define only the variables we need to reduce memory footprint
+    required_vars = [
+        'air_temperature_2m',
+        'precipitation_amount',
+        'cloud_area_fraction',
+        'air_pressure_at_sea_level',
+        'wind_speed_10m',
+        'wind_speed_of_gust',
+        'latitude',
+        'longitude'
+    ]
 
     try:
-        print(f"Combining {len(all_datasets)} datasets...")
-        combined_ds = xr.concat(all_datasets, dim='time')
-        combined_ds = combined_ds.sortby('time')
+        print(f"Opening {len(all_files)} file(s) with chunking...")
+        # Use open_mfdataset to handle multiple files efficiently with dask
+        # The 'auto' chunking is a good starting point for performance.
+        ds = xr.open_mfdataset(all_files, chunks='auto', combine='by_coords')
+
+        # Select only the required variables
+        ds = ds[required_vars]
 
         # Rename wind_speed_of_gust to wind_gust for consistency
-        if 'wind_speed_of_gust' in combined_ds:
-            combined_ds = combined_ds.rename({'wind_speed_of_gust': 'wind_gust'})
+        if 'wind_speed_of_gust' in ds:
+            ds = ds.rename({'wind_speed_of_gust': 'wind_gust'})
 
-
-        zarr_exists = os.path.exists(ZARR_STORE_PATH_MET)
-        if not zarr_exists:
-            print(f"Creating new Zarr store at {ZARR_STORE_PATH_MET}")
-            combined_ds.to_zarr(ZARR_STORE_PATH_MET, mode='w')
-        else:
-            print(f"Appending to existing Zarr store")
-            try:
-                existing_ds = xr.open_zarr(ZARR_STORE_PATH_MET)
-                if 'time' in existing_ds.dims:
-                    combined_ds.to_zarr(ZARR_STORE_PATH_MET, mode='a', append_dim="time")
-                else:
-                    print(f"Warning: Existing Zarr store doesn't have time dimension. Creating new store.")
-                    combined_ds.to_zarr(ZARR_STORE_PATH_MET, mode='w')
-            except Exception as zarr_error:
-                print(f"Error accessing existing Zarr store: {zarr_error}")
-                print(f"Creating new Zarr store.")
-                combined_ds.to_zarr(ZARR_STORE_PATH_MET, mode='w')
+        print("Writing to Zarr store...")
+        # The computation will happen here, streamed to the Zarr store
+        ds.to_zarr(ZARR_STORE_PATH_MET, mode='w')
+        print("Finished writing to Zarr store.")
 
     except Exception as e:
-        print(f"Error combining or writing datasets: {e}")
+        print(f"Error processing files: {e}")
+
 
 def process_met_data(date_str, cycle):
     """
