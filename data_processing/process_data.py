@@ -146,6 +146,9 @@ def process_gfs_data_zarr(date_str, cycle):
             if 'valid_time' in ds.coords and 'time' not in ds.coords:
                 ds = ds.rename({'valid_time': 'time'})
             
+            if 'valid_time' in ds.coords:
+                ds = ds.drop_vars('valid_time')
+
             if 'time' not in ds.coords:
                 print(f"Warning: No time coordinate in {file_path}. Skipping.")
                 continue
