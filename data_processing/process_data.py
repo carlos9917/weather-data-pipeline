@@ -206,6 +206,11 @@ def process_gfs_data_zarr(date_str, cycle):
             if 'time' in ds.coords and 'time' not in ds.dims:
                 ds = ds.expand_dims('time')
             
+            # Add init_time coordinate
+            init_time = pd.to_datetime(f"{date_str} {cycle}:00")
+            ds = ds.assign_coords(init_time=init_time)
+            ds = ds.expand_dims('init_time')
+
             all_datasets.append(ds)
 
         except Exception as e:
