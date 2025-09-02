@@ -137,13 +137,13 @@ def process_gfs_data_zarr(date_str, cycle):
                 print(f"Warning: No processable variables found in {file_path}. Skipping.")
                 continue
             
-            # Standardize time coordinate name and merge.
-            # The previous complex alignment/interpolation logic was causing issues.
-            # All variables from a single GRIB file should have the same coordinates.
             processed_datasets = []
             for d in datasets:
                 if 'valid_time' in d.coords and 'time' not in d.coords:
                     d = d.rename({'valid_time': 'time'})
+                # Drop conflicting coordinates that prevent merging
+                if 'heightAboveGround' in d.coords:
+                    d = d.drop_vars('heightAboveGround')
                 processed_datasets.append(d)
             
             ds = xr.merge(processed_datasets)
