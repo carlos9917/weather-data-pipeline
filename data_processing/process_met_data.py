@@ -4,6 +4,8 @@ import argparse
 import sys
 import numpy as np
 import warnings
+import zarr
+
 warnings.filterwarnings("ignore")
 
 # Add the project root to the Python path
@@ -32,6 +34,7 @@ def process_met_data_zarr(date_str, cycle):
 
     # Define only the variables we need to reduce memory footprint
     required_vars = [
+        'time',
         'air_temperature_2m',
         'precipitation_amount',
         'cloud_area_fraction',
@@ -48,8 +51,8 @@ def process_met_data_zarr(date_str, cycle):
         # The 'auto' chunking is a good starting point for performance.
         ds = xr.open_mfdataset(all_files, chunks='auto', combine='by_coords')
 
-        # Select only the required variables
-        ds = ds[required_vars]
+        # Select only the required variables - keep variables that are actually in the dataset
+        ds = ds[[var for var in required_vars if var in ds.variables]]
 
         # Rename wind_speed_of_gust to wind_gust for consistency
         if 'wind_speed_of_gust' in ds:
@@ -57,7 +60,7 @@ def process_met_data_zarr(date_str, cycle):
 
         print("Writing to Zarr store...")
         # The computation will happen here, streamed to the Zarr store
-        ds.to_zarr(ZARR_STORE_PATH_MET, mode='w')
+        ds.to_zarr(ZARR_STORE_PATH_MET, mode='w', consolidated=True)
         print("Finished writing to Zarr store.")
 
     except Exception as e:
