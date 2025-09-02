@@ -12,7 +12,7 @@ import pandas as pd
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import ZARR_STORE_PATH, EUROPE_BOUNDS
+from config import EUROPE_BOUNDS
 
 # Define plotting configurations for each variable
 PLOT_CONFIG = {
@@ -63,16 +63,20 @@ PLOT_CONFIG = {
     }
 }
 
-def plot_map(ds_single, config, plots_dir, time_str, time_val):
-    var_name = config.get('speed_var', list(PLOT_CONFIG.keys())[list(PLOT_CONFIG.values()).index(config)])
-    data = ds_single[var_name]
+def plot_map(ds_single, var_key, config, plots_dir, time_val):
+    """
+    Generates and saves a single map plot for a given variable and time step.
+    """
+    var_name_to_plot = config.get('speed_var', var_key)
+    data = ds_single[var_name_to_plot]
 
-    # Ensure 2D [lat, lon]
+    # Ensure data is 2D [lat, lon]
     for dim in data.dims:
         if dim not in ["latitude", "longitude"]:
             data = data.isel({dim: 0})
     data = data.squeeze().values
 
+    # Unit conversions
     if config.get('convert_to_celsius', False):
         data = data - 273.15
     if config.get('convert_to_hpa', False):
@@ -102,19 +106,8 @@ def plot_map(ds_single, config, plots_dir, time_str, time_val):
 
     # Wind barbs
     if 'u_var' in config and 'v_var' in config:
-        u_wind = ds_single[config['u_var']]
-        v_wind = ds_single[config['v_var']]
-
-        for dim in u_wind.dims:
-            if dim not in ["latitude", "longitude"]:
-                u_wind = u_wind.isel({dim: 0})
-        for dim in v_wind.dims:
-            if dim not in ["latitude", "longitude"]:
-                v_wind = v_wind.isel({dim: 0})
-
-        u_wind = u_wind.squeeze().values
-        v_wind = v_wind.squeeze().values
-
+        u_wind = ds_single[config['u_var']].squeeze().values
+        v_wind = ds_single[config['v_var']].squeeze().values
         skip = max(1, len(ds_single['longitude']) // 25)
         ax.barbs(ds_single['longitude'][::skip], ds_single['latitude'][::skip],
                  u_wind[::skip, ::skip], v_wind[::skip, ::skip],
@@ -122,72 +115,7 @@ def plot_map(ds_single, config, plots_dir, time_str, time_val):
 
     ax.set_title(f"{config['title']}\n{time_val.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=16)
 
-    plot_filename = f"{var_name}_{time_val.strftime('%Y%m%d_%H%M')}.png"
-    plot_path = os.path.join(plots_dir, plot_filename)
-
-    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-    plt.close(fig)
-    print(f"Saved plot: {plot_path}")
-def plot_map(ds_single, config, plots_dir, time_str, time_val):
-    var_name = config.get('speed_var', list(PLOT_CONFIG.keys())[list(PLOT_CONFIG.values()).index(config)])
-    data = ds_single[var_name]
-
-    # Ensure 2D [lat, lon]
-    for dim in data.dims:
-        if dim not in ["latitude", "longitude"]:
-            data = data.isel({dim: 0})
-    data = data.squeeze().values
-
-    if config.get('convert_to_celsius', False):
-        data = data - 273.15
-    if config.get('convert_to_hpa', False):
-        data = data / 100
-
-    fig = plt.figure(figsize=(14, 10))
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    ax.set_extent([EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max'],
-                   EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']],
-                  crs=ccrs.PlateCarree())
-
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS, linestyle=':')
-    gl = ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
-    gl.top_labels = False
-    gl.right_labels = False
-
-    # Contour plot
-    cf = ax.contourf(ds_single['longitude'], ds_single['latitude'], data,
-                     transform=ccrs.PlateCarree(),
-                     cmap=config['cmap'],
-                     levels=config['levels'],
-                     extend='both',
-                     norm=config.get('norm'))
-    fig.colorbar(cf, ax=ax, orientation='vertical',
-                 label=f"{config['title']} ({config['unit']})", pad=0.05)
-
-    # Wind barbs
-    if 'u_var' in config and 'v_var' in config:
-        u_wind = ds_single[config['u_var']]
-        v_wind = ds_single[config['v_var']]
-
-        for dim in u_wind.dims:
-            if dim not in ["latitude", "longitude"]:
-                u_wind = u_wind.isel({dim: 0})
-        for dim in v_wind.dims:
-            if dim not in ["latitude", "longitude"]:
-                v_wind = v_wind.isel({dim: 0})
-
-        u_wind = u_wind.squeeze().values
-        v_wind = v_wind.squeeze().values
-
-        skip = max(1, len(ds_single['longitude']) // 25)
-        ax.barbs(ds_single['longitude'][::skip], ds_single['latitude'][::skip],
-                 u_wind[::skip, ::skip], v_wind[::skip, ::skip],
-                 length=6, transform=ccrs.PlateCarree(), pivot='middle')
-
-    ax.set_title(f"{config['title']}\n{time_val.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=16)
-
-    plot_filename = f"{var_name}_{time_val.strftime('%Y%m%d_%H%M')}.png"
+    plot_filename = f"{var_name_to_plot}_{time_val.strftime('%Y%m%d_%H%M')}.png"
     plot_path = os.path.join(plots_dir, plot_filename)
 
     plt.savefig(plot_path, dpi=150, bbox_inches='tight')
@@ -198,7 +126,7 @@ def create_visualizations(date_str, cycle):
     """
     Creates map visualizations for all configured variables from the Zarr store.
     """
-    zarr_store_path = os.path.join('data', 'processed', f'gfs_{date_str}_{cycle}.zarr')
+    zarr_store_path = os.path.join('data', 'processed', f'gfs_{{date_str}}_{{cycle}}.zarr')
     if not os.path.exists(zarr_store_path):
         print(f"Error: Zarr store not found at {zarr_store_path}")
         return
@@ -208,43 +136,31 @@ def create_visualizations(date_str, cycle):
     
     try:
         ds = xr.open_zarr(zarr_store_path)
-        
-        # The data should already be for the correct cycle.
-        # We might just need to select the init_time if there are multiple.
-        if 'init_time' in ds.dims and len(ds.init_time) > 1:
-            # Assuming we want the latest or a specific init_time, let's select the first one for now
-            ds_cycle = ds.isel(init_time=0)
-        else:
-            ds_cycle = ds
+        ds_cycle = ds.isel(init_time=0) if 'init_time' in ds.dims else ds
 
         if not ds_cycle.time.size:
             print(f"No data found for date {date_str} and cycle {cycle}.")
             return
 
+        print(f"Available variables in Zarr store: {list(ds_cycle.variables)}")
         print(f"Processing {ds_cycle.time.size} time steps...")
 
-        # Loop through each time step
         for time_step in ds_cycle.time:
-            # Extract single time step (removes time dimension)
             ds_single = ds_cycle.sel(time=time_step)
             time_val = pd.to_datetime(time_step.values)
-            time_str = time_val.strftime('%Y-%m-%d %H:%M UTC')
             
             for var_key, config in PLOT_CONFIG.items():
-                # Check if all required variables for the plot exist in the dataset
                 required_vars = [config.get('speed_var', var_key)]
-                if 'u_var' in config: 
-                    required_vars.append(config['u_var'])
-                if 'v_var' in config: 
-                    required_vars.append(config['v_var'])
+                if 'u_var' in config: required_vars.append(config['u_var'])
+                if 'v_var' in config: required_vars.append(config['v_var'])
                 
                 if all(v in ds_single for v in required_vars):
                     try:
-                        plot_map(ds_single, config, plots_dir, time_str, time_val)
+                        plot_map(ds_single, var_key, config, plots_dir, time_val)
                     except Exception as e:
-                        print(f"Failed to create plot for {var_key} at {time_str}: {e}")
+                        print(f"Failed to create plot for {var_key} at {time_val.strftime('%Y-%m-%d %H:%M')}: {e}")
                 else:
-                    print(f"Skipping plot for '{config['title']}' at {time_str}: missing required data variables.")
+                    print(f"Skipping plot for '{config['title']}' at {time_val.strftime('%Y-%m-%d %H:%M')}: missing required data variables.")
 
     except Exception as e:
         print(f"An error occurred: {e}")
