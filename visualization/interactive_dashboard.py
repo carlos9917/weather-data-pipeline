@@ -112,7 +112,7 @@ def update_map(selected_variable, time_index):
         colorscale=var_config['colorscale'],
         colorbar_title=var_config['unit'],
         opacity=0.7,
-        radius=10
+        radius=50
     ))
 
     fig.update_layout(
