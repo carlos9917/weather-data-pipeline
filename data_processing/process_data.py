@@ -140,7 +140,7 @@ def process_gfs_data_zarr(date_str, cycle):
                 continue
 
             # Merge the individually loaded datasets
-            ds = xr.merge(datasets_to_merge)
+            ds = xr.merge(datasets_to_merge, compat='override')
             print(f"Variables found in merged dataset: {list(ds.variables)}")
 
             # Standardize time coordinate
