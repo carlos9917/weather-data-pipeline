@@ -137,48 +137,16 @@ def process_gfs_data_zarr(date_str, cycle):
                 print(f"Warning: No processable variables found in {file_path}. Skipping.")
                 continue
             
-            # Align all datasets to the same time coordinate before merging
-            reference_time = None
-            aligned_datasets = []
+            # Standardize time coordinate name and merge.
+            # The previous complex alignment/interpolation logic was causing issues.
+            # All variables from a single GRIB file should have the same coordinates.
+            processed_datasets = []
+            for d in datasets:
+                if 'valid_time' in d.coords and 'time' not in d.coords:
+                    d = d.rename({'valid_time': 'time'})
+                processed_datasets.append(d)
             
-            for ds in datasets:
-                # Standardize time coordinate name
-                if 'valid_time' in ds.coords and 'time' not in ds.coords:
-                    ds = ds.rename({'valid_time': 'time'})
-                
-                if 'time' not in ds.coords:
-                    print(f"Warning: No time coordinate found in dataset from {file_path}")
-                    continue
-                
-                # Ensure time is expanded as a dimension if it's just a scalar coordinate
-                if 'time' in ds.coords and 'time' not in ds.dims:
-                    ds = ds.expand_dims('time')
-                    
-                # Set reference time from first dataset
-                if reference_time is None:
-                    reference_time = ds.coords['time']
-                
-                # Only try to interpolate if both datasets have time as a dimension
-                # and if the time coordinates don't match
-                try:
-                    if ('time' in ds.dims and 'time' in reference_time.dims and 
-                        not ds.coords['time'].equals(reference_time)):
-                        print(f"Warning: Time coordinate mismatch in {file_path}, interpolating to reference time")
-                        ds = ds.interp(time=reference_time, method='nearest')
-                    elif 'time' not in ds.dims or 'time' not in reference_time.dims:
-                        # If either doesn't have time as dimension, just ensure they're both expanded
-                        pass
-                except Exception as interp_error:
-                    print(f"Warning: Could not interpolate time for {file_path}: {interp_error}")
-                
-                aligned_datasets.append(ds)
-            
-            if not aligned_datasets:
-                print(f"Warning: No datasets with valid time coordinates in {file_path}. Skipping.")
-                continue
-                
-            # Merge aligned datasets
-            ds = xr.merge(aligned_datasets, compat='override')
+            ds = xr.merge(processed_datasets)
 
             if 'time' not in ds.coords:
                 print(f"FATAL: Could not find 'time' coordinate after merging in {file_path}. Skipping file.")
@@ -216,8 +184,8 @@ def process_gfs_data_zarr(date_str, cycle):
         try:
             print(f"Combining {len(all_datasets)} datasets for cycle {date_str}/{cycle}...")
             
-            # Combine all datasets for the cycle using coordinates to avoid duplicates
-            cycle_ds = xr.combine_by_coords(all_datasets)
+            # Concatenate all datasets for the cycle along time dimension
+            cycle_ds = xr.concat(all_datasets, dim='time')
             
             # Sort by time to ensure proper ordering
             cycle_ds = cycle_ds.sortby('time')
