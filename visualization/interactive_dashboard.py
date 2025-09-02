@@ -105,16 +105,21 @@ def update_map(selected_variable, time_index):
     # Apply conversion function (e.g., K to C)
     converted_data = var_config['convert'](data_slice.values)
 
-    fig = go.Figure(go.Contourmapbox(
-        lon=ds.longitude.values,
-        lat=ds.latitude.values,
-        z=converted_data,
+    # Densitymapbox expects 1D arrays for lat, lon, and z.
+    # We need to create a meshgrid and then flatten it.
+    lon_grid, lat_grid = np.meshgrid(ds.longitude.values, ds.latitude.values)
+    lon_flat = lon_grid.flatten()
+    lat_flat = lat_grid.flatten()
+    z_flat = converted_data.flatten()
+
+    fig = go.Figure(go.Densitymapbox(
+        lon=lon_flat,
+        lat=lat_flat,
+        z=z_flat,
         colorscale=var_config['colorscale'],
         colorbar_title=var_config['unit'],
         opacity=0.7,
-        # connectgaps=True,
-        zmin=np.nanmin(converted_data),
-        zmax=np.nanmax(converted_data)
+        radius=20
     ))
 
     fig.update_layout(
@@ -153,8 +158,9 @@ def update_timeseries(selected_variable, selected_point):
     
     var_config = VARIABLE_CONFIG[selected_variable]
     timeseries_data = var_config['convert'](point_data[selected_variable].values)
-    time_values = pd.to_datetime(ds.time.values)
-    
+    # Workaround for corrupted time data: plot against forecast step index
+    time_values = np.arange(len(ds.time.values))
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=time_values,
@@ -162,10 +168,10 @@ def update_timeseries(selected_variable, selected_point):
         mode='lines+markers',
         name=var_config['label']
     ))
-    
+
     fig.update_layout(
         title=f"Forecast for {var_config['label']}<br>Lat: {lat:.2f}, Lon: {lon:.2f}",
-        xaxis_title="Time (UTC)",
+        xaxis_title="Forecast Step",
         yaxis_title=f"{var_config['label']} ({var_config['unit']})",
         margin={"r":20,"t":80,"l":20,"b":20}
     )
