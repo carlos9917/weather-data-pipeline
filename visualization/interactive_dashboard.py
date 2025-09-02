@@ -30,6 +30,16 @@ def get_dataset():
 
 ds = get_dataset()
 
+# --- App Initialization and Data Prep ---
+if ds is not None:
+    # Get available initialization times
+    init_times = pd.to_datetime(ds.init_time.values)
+    init_time_options = [{'label': t.strftime('%Y-%m-%d %H:%M UTC'), 'value': str(t)} for t in sorted(init_times, reverse=True)]
+    default_init_time = str(sorted(init_times, reverse=True)[0]) if init_time_options else None
+else:
+    init_time_options = []
+    default_init_time = None
+
 VARIABLE_CONFIG = {
     'temperature': {'label': 'Temperature (2m)', 'unit': '°C', 'colorscale': 'RdYlBu_r', 'convert': lambda x: x - 273.15},
     'precipitation_rate': {'label': 'Precipitation Rate', 'unit': 'mm/hr', 'colorscale': 'Blues', 'convert': lambda x: x},
@@ -37,6 +47,7 @@ VARIABLE_CONFIG = {
     'surface_pressure': {'label': 'Surface Pressure', 'unit': 'hPa', 'colorscale': 'Viridis', 'convert': lambda x: x / 100},
     'wind_speed_10m': {'label': 'Wind Speed (10m)', 'unit': 'm/s', 'colorscale': 'Viridis', 'convert': lambda x: x},
     'wind_speed_100m': {'label': 'Wind Speed (100m)', 'unit': 'm/s', 'colorscale': 'Plasma', 'convert': lambda x: x},
+    'wind_gust': {'label': 'Wind Gust (Surface)', 'unit': 'm/s', 'colorscale': 'YlOrRd', 'convert': lambda x: x},
 }
 
 # --- Dash App Initialization ---
@@ -48,23 +59,27 @@ app.layout = html.Div([
     html.H1("Interactive Weather Forecast Dashboard", style={'textAlign': 'center'}),
     
     html.Div(className='row', children=[
-        html.Div(className='four columns', children=[
+        html.Div(className='three columns', children=[
+            html.Label("Select GFS Cycle (Init Time):"),
+            dcc.Dropdown(
+                id='init-time-dropdown',
+                options=init_time_options,
+                value=default_init_time
+            ),
+        ]),
+        html.Div(className='three columns', children=[
             html.Label("Select Weather Variable:"),
             dcc.Dropdown(
                 id='variable-dropdown',
-                options=[{'label': v['label'], 'value': k} for k, v in VARIABLE_CONFIG.items() if k in ds.variables],
-                value='temperature'
+                # Options will be populated by callback
             ),
         ]),
-        html.Div(className='eight columns', children=[
+        html.Div(className='six columns', children=[
             html.Label("Select Forecast Hour:"),
             dcc.Slider(
                 id='time-slider',
                 min=0,
-                max=len(ds.time) - 1,
-                value=0,
-                marks={i: str(pd.to_datetime(ds.time.values[i]).strftime('%H:%M')) for i in range(0, len(ds.time), 3)},
-                step=1
+                # Max and marks will be populated by callback
             ),
             html.Div(id='slider-output-container', style={'textAlign': 'center', 'marginTop': '10px'})
         ]),
@@ -84,23 +99,71 @@ app.layout = html.Div([
 ])
 
 # --- Callbacks ---
+
+@app.callback(
+    Output('variable-dropdown', 'options'),
+    Output('variable-dropdown', 'value'),
+    Input('init-time-dropdown', 'value'))
+def update_variable_dropdown(init_time):
+    """Populates variables available for the selected GFS cycle."""
+    if ds is None or init_time is None:
+        return [], None
+    
+    ds_cycle = ds.sel(init_time=init_time)
+    available_vars = [k for k, v in VARIABLE_CONFIG.items() if k in ds_cycle.variables]
+    options = [{'label': VARIABLE_CONFIG[k]['label'], 'value': k} for k in available_vars]
+    
+    # Set a default value
+    default_var = 'temperature' if 'temperature' in available_vars else available_vars[0] if available_vars else None
+    return options, default_var
+
+@app.callback(
+    Output('time-slider', 'max'),
+    Output('time-slider', 'marks'),
+    Output('time-slider', 'value'),
+    Input('init-time-dropdown', 'value'))
+def update_time_slider(init_time):
+    """Updates the time slider based on the selected GFS cycle."""
+    if ds is None or init_time is None:
+        return 0, {}, 0
+        
+    ds_cycle = ds.sel(init_time=init_time)
+    time_coords = ds_cycle.time.values
+    
+    max_val = len(time_coords) - 1
+    
+    # Create marks for every 3 hours
+    marks = {}
+    for i in range(0, len(time_coords), 3):
+        # Calculate forecast hour relative to init_time
+        forecast_hour = (pd.to_datetime(time_coords[i]) - pd.to_datetime(init_time)).total_seconds() / 3600
+        marks[i] = f"{int(forecast_hour)}h"
+
+    return max_val, marks, 0
+
 @app.callback(
     Output('slider-output-container', 'children'),
-    Input('time-slider', 'value'))
-def update_slider_output(value):
-    if ds is None: return "No data"
-    selected_time = pd.to_datetime(ds.time.values[value])
-    return f"Selected Time: {selected_time.strftime('%Y-%m-%d %H:%M')} UTC"
+    Input('time-slider', 'value'),
+    Input('init-time-dropdown', 'value'))
+def update_slider_output(value, init_time):
+    if ds is None or init_time is None: return "No data"
+    
+    ds_cycle = ds.sel(init_time=init_time)
+    selected_time = pd.to_datetime(ds_cycle.time.values[value])
+    return f"Forecast Valid Time: {selected_time.strftime('%Y-%m-%d %H:%M')} UTC"
 
 @app.callback(
     Output('weather-map', 'figure'),
     Input('variable-dropdown', 'value'),
-    Input('time-slider', 'value'))
-def update_map(selected_variable, time_index):
-    if ds is None: return go.Figure()
+    Input('time-slider', 'value'),
+    Input('init-time-dropdown', 'value'))
+def update_map(selected_variable, time_index, init_time):
+    if ds is None or selected_variable is None or init_time is None:
+        return go.Figure()
 
+    ds_cycle = ds.sel(init_time=init_time)
     var_config = VARIABLE_CONFIG[selected_variable]
-    data_slice = ds[selected_variable].isel(time=time_index)
+    data_slice = ds_cycle[selected_variable].isel(time=time_index)
     
     # Apply conversion function (e.g., K to C)
     converted_data = var_config['convert'](data_slice.values)
@@ -123,7 +186,7 @@ def update_map(selected_variable, time_index):
     ))
 
     fig.update_layout(
-        title=f"{var_config['label']} at {pd.to_datetime(ds.time.values[time_index]).strftime('%Y-%m-%d %H:%M')} UTC",
+        title=f"{var_config['label']} at {pd.to_datetime(ds_cycle.time.values[time_index]).strftime('%Y-%m-%d %H:%M')} UTC",
         mapbox_style="open-street-map",
         mapbox_center_lon=(EUROPE_BOUNDS['lon_min'] + EUROPE_BOUNDS['lon_max']) / 2,
         mapbox_center_lat=(EUROPE_BOUNDS['lat_min'] + EUROPE_BOUNDS['lat_max']) / 2,
@@ -145,22 +208,26 @@ def store_clicked_point(clickData, current_point):
 @app.callback(
     Output('timeseries-plot', 'figure'),
     Input('variable-dropdown', 'value'),
-    Input('selected-point-store', 'data'))
-def update_timeseries(selected_variable, selected_point):
-    if ds is None or selected_variable is None or selected_point is None:
+    Input('selected-point-store', 'data'),
+    Input('init-time-dropdown', 'value'))
+def update_timeseries(selected_variable, selected_point, init_time):
+    if ds is None or selected_variable is None or selected_point is None or init_time is None:
         return go.Figure()
 
     lat = selected_point['lat']
     lon = selected_point['lon']
     
+    ds_cycle = ds.sel(init_time=init_time)
+    
     # Find nearest point in dataset
-    point_data = ds.sel(latitude=lat, longitude=lon, method='nearest')
+    point_data = ds_cycle.sel(latitude=lat, longitude=lon, method='nearest')
     
     var_config = VARIABLE_CONFIG[selected_variable]
     timeseries_data = var_config['convert'](point_data[selected_variable].values)
-    # Workaround for corrupted time data: plot against forecast step index
-    time_values = np.arange(len(ds.time.values))
-
+    
+    # Use the actual time values for the selected cycle
+    time_values = pd.to_datetime(ds_cycle.time.values)
+    
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=time_values,
@@ -168,10 +235,10 @@ def update_timeseries(selected_variable, selected_point):
         mode='lines+markers',
         name=var_config['label']
     ))
-
+    
     fig.update_layout(
         title=f"Forecast for {var_config['label']}<br>Lat: {lat:.2f}, Lon: {lon:.2f}",
-        xaxis_title="Forecast Step",
+        xaxis_title="Time (UTC)",
         yaxis_title=f"{var_config['label']} ({var_config['unit']})",
         margin={"r":20,"t":80,"l":20,"b":20}
     )
