@@ -141,6 +141,7 @@ def process_gfs_data_zarr(date_str, cycle):
 
             # Merge the individually loaded datasets
             ds = xr.merge(datasets_to_merge)
+            print(f"Variables found in merged dataset: {list(ds.variables)}")
 
             # Standardize time coordinate
             if 'valid_time' in ds.coords and 'time' not in ds.coords:
@@ -165,7 +166,7 @@ def process_gfs_data_zarr(date_str, cycle):
             # Rename variables
             rename_map = {
                 'u10': 'u_wind_10m', 'v10': 'v_wind_10m', 'u100': 'u_wind_100m', 
-                'v100': 'v_wind_100m', 't': 'temperature', 'tp': 'precipitation',
+                'v100': 'v_wind_100m', 't2m': 'temperature', 'tp': 'precipitation',
                 'tcc': 'cloud_cover', 'prate': 'precipitation_rate', 'sp': 'surface_pressure',
                 'gust': 'wind_gust'
             }
