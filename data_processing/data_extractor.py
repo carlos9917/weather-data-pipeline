@@ -135,6 +135,7 @@ class GFSDataExtractor:
                 'sp':   {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
                 'tcc':  {'filter_by_keys': {'typeOfLevel': 'atmosphere', 'shortName': 'tcc'}},
                 'prate':{'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'prate'}},
+                'tke':  {'filter_by_keys': {'typeOfLevel': 'planetaryBoundaryLayer', 'shortName': 'tke'}},
             }
 
             ds_list = []
@@ -205,7 +206,8 @@ class GFSDataExtractor:
                 'total_cloud_cover': df['tcc'],
                 'precipitation_rate': df['prate'],
                 'surface_pressure': df['sp'],
-                'wind_power_density': wind_power_density
+                'wind_power_density': wind_power_density,
+                'tke_pbl': df.get('tke', np.nan)
             })
 
             # Convert longitude back to -180 to 180 for easier use in GIS

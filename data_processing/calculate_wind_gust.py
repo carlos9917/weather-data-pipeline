@@ -41,18 +41,21 @@ def calculate_wind_gust_friction_velocity(gfs_data, alpha=3.0):
 
 def calculate_wind_gust_tke(gfs_data, beta=2.0):
     """
-    Calculates wind gust using Turbulent Kinetic Energy (TKE).
+    Calculates wind gust using Turbulent Kinetic Energy (TKE) from the planetary boundary layer.
     Gust = U10m + beta * sqrt(TKE)
     """
-    if 'tke_10m' not in gfs_data:
-        print("TKE variable (tke_10m) not found in dataset.")
+    if 'tke_pbl' not in gfs_data:
+        print("TKE variable (tke_pbl) not found in dataset.")
         return None
 
     u_wind_10m = gfs_data['u_wind_10m']
     v_wind_10m = gfs_data['v_wind_10m']
     wind_speed_10m = np.sqrt(u_wind_10m**2 + v_wind_10m**2)
     
-    wind_gust = wind_speed_10m + beta * np.sqrt(gfs_data['tke_10m'])
+    # Ensure TKE values are non-negative before taking the square root
+    tke_non_negative = xr.where(gfs_data['tke_pbl'] < 0, 0, gfs_data['tke_pbl'])
+    
+    wind_gust = wind_speed_10m + beta * np.sqrt(tke_non_negative)
     wind_gust.name = 'wind_gust_tke'
     wind_gust.attrs['long_name'] = f'Wind gust (TKE method, beta={beta})'
     wind_gust.attrs['units'] = 'm s**-1'
