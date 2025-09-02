@@ -175,27 +175,14 @@ def update_timeseries(selected_variable, selected_point, init_time):
     
     ds_cycle = ds.sel(init_time=init_time)
     
-    # Find nearest point in dataset
-    point_data = ds_cycle.sel(latitude=lat, longitude=lon, method='nearest')
+    # Find nearest point in dataset and extract the full time series
+    point_data = ds_cycle[selected_variable].sel(latitude=lat, longitude=lon, method='nearest')
     
     var_config = VARIABLE_CONFIG[selected_variable]
-    
-    # Ensure we're working with a 1D array of time series data
-    timeseries_values = point_data[selected_variable].values
-    if timeseries_values.ndim > 1:
-        # This can happen if the selection doesn't fully reduce the dimensions
-        timeseries_values = timeseries_values.flatten()
-
-    timeseries_data = var_config['convert'](timeseries_values)
+    timeseries_data = var_config['convert'](point_data.values)
     
     # Use the actual time values for the selected cycle
     time_values = pd.to_datetime(ds_cycle.time.values)
-    
-    # Ensure time_values is also 1D and matches the length of the data
-    if len(time_values) != len(timeseries_data):
-        # Handle potential dimension mismatch if necessary, though it shouldn't happen here
-        # For now, we'll assume they match. If not, this indicates a deeper data issue.
-        pass
     
     fig = go.Figure()
     fig.add_trace(go.Scatter(
