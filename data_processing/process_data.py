@@ -216,8 +216,8 @@ def process_gfs_data_zarr(date_str, cycle):
         try:
             print(f"Combining {len(all_datasets)} datasets for cycle {date_str}/{cycle}...")
             
-            # Concatenate all datasets for the cycle along time dimension
-            cycle_ds = xr.concat(all_datasets, dim='time')
+            # Combine all datasets for the cycle using coordinates to avoid duplicates
+            cycle_ds = xr.combine_by_coords(all_datasets)
             
             # Sort by time to ensure proper ordering
             cycle_ds = cycle_ds.sortby('time')
