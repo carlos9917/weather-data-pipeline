@@ -198,20 +198,24 @@ def create_visualizations(date_str, cycle):
     """
     Creates map visualizations for all configured variables from the Zarr store.
     """
-    if not os.path.exists(ZARR_STORE_PATH):
-        print(f"Error: Zarr store not found at {ZARR_STORE_PATH}")
+    zarr_store_path = os.path.join('data', 'processed', f'gfs_{date_str}_{cycle}.zarr')
+    if not os.path.exists(zarr_store_path):
+        print(f"Error: Zarr store not found at {zarr_store_path}")
         return
 
     plots_dir = os.path.join('visualization', 'plots', date_str, cycle)
     os.makedirs(plots_dir, exist_ok=True)
     
     try:
-        ds = xr.open_zarr(ZARR_STORE_PATH)
+        ds = xr.open_zarr(zarr_store_path)
         
-        # Select data for the specified date and cycle
-        start_time = pd.to_datetime(f"{date_str} {cycle}:00")
-        end_time = start_time + pd.Timedelta(hours=72)
-        ds_cycle = ds.sel(time=slice(start_time, end_time))
+        # The data should already be for the correct cycle.
+        # We might just need to select the init_time if there are multiple.
+        if 'init_time' in ds.dims and len(ds.init_time) > 1:
+            # Assuming we want the latest or a specific init_time, let's select the first one for now
+            ds_cycle = ds.isel(init_time=0)
+        else:
+            ds_cycle = ds
 
         if not ds_cycle.time.size:
             print(f"No data found for date {date_str} and cycle {cycle}.")
