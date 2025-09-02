@@ -105,14 +105,16 @@ def update_map(selected_variable, time_index):
     # Apply conversion function (e.g., K to C)
     converted_data = var_config['convert'](data_slice.values)
 
-    fig = go.Figure(go.Densitymapbox(
+    fig = go.Figure(go.Contourmapbox(
         lon=ds.longitude.values,
         lat=ds.latitude.values,
         z=converted_data,
         colorscale=var_config['colorscale'],
         colorbar_title=var_config['unit'],
         opacity=0.7,
-        radius=50
+        # connectgaps=True,
+        zmin=np.nanmin(converted_data),
+        zmax=np.nanmax(converted_data)
     ))
 
     fig.update_layout(
@@ -151,10 +153,11 @@ def update_timeseries(selected_variable, selected_point):
     
     var_config = VARIABLE_CONFIG[selected_variable]
     timeseries_data = var_config['convert'](point_data[selected_variable].values)
+    time_values = pd.to_datetime(ds.time.values)
     
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=pd.to_datetime(ds.time.values),
+        x=time_values,
         y=timeseries_data,
         mode='lines+markers',
         name=var_config['label']
