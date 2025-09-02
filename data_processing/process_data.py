@@ -96,11 +96,11 @@ def process_gfs_data_duckdb(date_str, cycle):
 
 def process_gfs_data_zarr(date_str, cycle):
     """
-    Processes raw GFS data and appends it to a Zarr store.
-    This is the final, robust version that handles GRIB files correctly.
+    Processes raw GFS data and stores it in a cycle-specific Zarr store.
     """
     raw_data_dir = os.path.join('data', 'raw', 'gfs', date_str, cycle)
-    os.makedirs(os.path.dirname(ZARR_STORE_PATH), exist_ok=True)
+    zarr_store_path = os.path.join('data', 'processed', f'gfs_{date_str}_{cycle}.zarr')
+    os.makedirs(os.path.dirname(zarr_store_path), exist_ok=True)
 
     if not os.path.exists(raw_data_dir):
         print(f"Raw data directory not found: {raw_data_dir}")
@@ -185,21 +185,9 @@ def process_gfs_data_zarr(date_str, cycle):
     init_time = pd.to_datetime(f"{date_str} {cycle}:00")
     cycle_ds = cycle_ds.assign_coords(init_time=init_time).expand_dims('init_time')
 
-    # Append to Zarr store
-    if os.path.exists(ZARR_STORE_PATH):
-        print("Appending to existing Zarr store...")
-        existing_ds = xr.open_zarr(ZARR_STORE_PATH)
-        
-        if init_time in existing_ds.init_time.values:
-            print(f"Warning: Overwriting existing data for init_time {init_time}.")
-            existing_ds = existing_ds.drop_sel(init_time=init_time)
-
-        updated_ds = xr.concat([existing_ds, cycle_ds], dim='init_time').sortby('init_time')
-        updated_ds.to_zarr(ZARR_STORE_PATH, mode='w')
-        print("Successfully updated Zarr store.")
-    else:
-        print(f"Creating new Zarr store at {ZARR_STORE_PATH}")
-        cycle_ds.to_zarr(ZARR_STORE_PATH, mode='w')
+    # Write to cycle-specific Zarr store, overwriting if it exists
+    print(f"Creating new Zarr store at {zarr_store_path}")
+    cycle_ds.to_zarr(zarr_store_path, mode='w')
 
 def process_gfs_data(date_str, cycle):
     """
