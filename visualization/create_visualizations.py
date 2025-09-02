@@ -63,12 +63,15 @@ PLOT_CONFIG = {
     }
 }
 
-def plot_map(ds_time, config, plots_dir, time_str):
-    """
-    Creates and saves a single map visualization for a given variable and time.
-    """
+def plot_map(ds_single, config, plots_dir, time_str, time_val):
     var_name = config.get('speed_var', list(PLOT_CONFIG.keys())[list(PLOT_CONFIG.values()).index(config)])
-    data = ds_time[var_name].squeeze()
+    data = ds_single[var_name]
+
+    # Ensure 2D [lat, lon]
+    for dim in data.dims:
+        if dim not in ["latitude", "longitude"]:
+            data = data.isel({dim: 0})
+    data = data.squeeze().values
 
     if config.get('convert_to_celsius', False):
         data = data - 273.15
@@ -87,32 +90,106 @@ def plot_map(ds_time, config, plots_dir, time_str):
     gl.top_labels = False
     gl.right_labels = False
 
-    # Plot contour fill
-    cf = ax.contourf(ds_time['longitude'], ds_time['latitude'], data,
-                    transform=ccrs.PlateCarree(),
-                    cmap=config['cmap'],
-                    levels=config['levels'],
-                    extend='both',
-                    norm=config.get('norm'))
-    
-    fig.colorbar(cf, ax=ax, orientation='vertical', label=f"{config['title']} ({config['unit']})", pad=0.05)
+    # Contour plot
+    cf = ax.contourf(ds_single['longitude'], ds_single['latitude'], data,
+                     transform=ccrs.PlateCarree(),
+                     cmap=config['cmap'],
+                     levels=config['levels'],
+                     extend='both',
+                     norm=config.get('norm'))
+    fig.colorbar(cf, ax=ax, orientation='vertical',
+                 label=f"{config['title']} ({config['unit']})", pad=0.05)
 
-    # Plot wind barbs for wind variables
+    # Wind barbs
     if 'u_var' in config and 'v_var' in config:
-        u_wind = ds_time[config['u_var']].squeeze()
-        v_wind = ds_time[config['v_var']].squeeze()
-        
-        # Subsample for clarity
-        skip = max(1, len(ds_time['longitude']) // 25)
-        ax.barbs(ds_time['longitude'][::skip], ds_time['latitude'][::skip],
+        u_wind = ds_single[config['u_var']]
+        v_wind = ds_single[config['v_var']]
+
+        for dim in u_wind.dims:
+            if dim not in ["latitude", "longitude"]:
+                u_wind = u_wind.isel({dim: 0})
+        for dim in v_wind.dims:
+            if dim not in ["latitude", "longitude"]:
+                v_wind = v_wind.isel({dim: 0})
+
+        u_wind = u_wind.squeeze().values
+        v_wind = v_wind.squeeze().values
+
+        skip = max(1, len(ds_single['longitude']) // 25)
+        ax.barbs(ds_single['longitude'][::skip], ds_single['latitude'][::skip],
                  u_wind[::skip, ::skip], v_wind[::skip, ::skip],
                  length=6, transform=ccrs.PlateCarree(), pivot='middle')
 
-    ax.set_title(f"{config['title']}\n{time_str}", fontsize=16)
-    
-    plot_filename = f"{var_name}_{pd.to_datetime(str(ds_time.time.values)).strftime('%Y%m%d_%H%M')}.png"
+    ax.set_title(f"{config['title']}\n{time_val.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=16)
+
+    plot_filename = f"{var_name}_{time_val.strftime('%Y%m%d_%H%M')}.png"
     plot_path = os.path.join(plots_dir, plot_filename)
-    
+
+    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"Saved plot: {plot_path}")
+def plot_map(ds_single, config, plots_dir, time_str, time_val):
+    var_name = config.get('speed_var', list(PLOT_CONFIG.keys())[list(PLOT_CONFIG.values()).index(config)])
+    data = ds_single[var_name]
+
+    # Ensure 2D [lat, lon]
+    for dim in data.dims:
+        if dim not in ["latitude", "longitude"]:
+            data = data.isel({dim: 0})
+    data = data.squeeze().values
+
+    if config.get('convert_to_celsius', False):
+        data = data - 273.15
+    if config.get('convert_to_hpa', False):
+        data = data / 100
+
+    fig = plt.figure(figsize=(14, 10))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    ax.set_extent([EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max'],
+                   EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']],
+                  crs=ccrs.PlateCarree())
+
+    ax.add_feature(cfeature.COASTLINE)
+    ax.add_feature(cfeature.BORDERS, linestyle=':')
+    gl = ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+    gl.top_labels = False
+    gl.right_labels = False
+
+    # Contour plot
+    cf = ax.contourf(ds_single['longitude'], ds_single['latitude'], data,
+                     transform=ccrs.PlateCarree(),
+                     cmap=config['cmap'],
+                     levels=config['levels'],
+                     extend='both',
+                     norm=config.get('norm'))
+    fig.colorbar(cf, ax=ax, orientation='vertical',
+                 label=f"{config['title']} ({config['unit']})", pad=0.05)
+
+    # Wind barbs
+    if 'u_var' in config and 'v_var' in config:
+        u_wind = ds_single[config['u_var']]
+        v_wind = ds_single[config['v_var']]
+
+        for dim in u_wind.dims:
+            if dim not in ["latitude", "longitude"]:
+                u_wind = u_wind.isel({dim: 0})
+        for dim in v_wind.dims:
+            if dim not in ["latitude", "longitude"]:
+                v_wind = v_wind.isel({dim: 0})
+
+        u_wind = u_wind.squeeze().values
+        v_wind = v_wind.squeeze().values
+
+        skip = max(1, len(ds_single['longitude']) // 25)
+        ax.barbs(ds_single['longitude'][::skip], ds_single['latitude'][::skip],
+                 u_wind[::skip, ::skip], v_wind[::skip, ::skip],
+                 length=6, transform=ccrs.PlateCarree(), pivot='middle')
+
+    ax.set_title(f"{config['title']}\n{time_val.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=16)
+
+    plot_filename = f"{var_name}_{time_val.strftime('%Y%m%d_%H%M')}.png"
+    plot_path = os.path.join(plots_dir, plot_filename)
+
     plt.savefig(plot_path, dpi=150, bbox_inches='tight')
     plt.close(fig)
     print(f"Saved plot: {plot_path}")
@@ -142,19 +219,24 @@ def create_visualizations(date_str, cycle):
 
         print(f"Processing {ds_cycle.time.size} time steps...")
 
+        # Loop through each time step
         for time_step in ds_cycle.time:
-            ds_time = ds_cycle.sel(time=time_step)
-            time_str = pd.to_datetime(str(time_step.values)).strftime('%Y-%m-%d %H:%M UTC')
+            # Extract single time step (removes time dimension)
+            ds_single = ds_cycle.sel(time=time_step)
+            time_val = pd.to_datetime(time_step.values)
+            time_str = time_val.strftime('%Y-%m-%d %H:%M UTC')
             
             for var_key, config in PLOT_CONFIG.items():
                 # Check if all required variables for the plot exist in the dataset
                 required_vars = [config.get('speed_var', var_key)]
-                if 'u_var' in config: required_vars.append(config['u_var'])
-                if 'v_var' in config: required_vars.append(config['v_var'])
+                if 'u_var' in config: 
+                    required_vars.append(config['u_var'])
+                if 'v_var' in config: 
+                    required_vars.append(config['v_var'])
                 
-                if all(v in ds_time for v in required_vars):
+                if all(v in ds_single for v in required_vars):
                     try:
-                        plot_map(ds_time, config, plots_dir, time_str)
+                        plot_map(ds_single, config, plots_dir, time_str, time_val)
                     except Exception as e:
                         print(f"Failed to create plot for {var_key} at {time_str}: {e}")
                 else:
