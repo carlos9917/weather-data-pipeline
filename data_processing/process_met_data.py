@@ -48,16 +48,9 @@ def process_met_data_zarr(date_str, cycle):
         combined_ds = xr.concat(all_datasets, dim='time')
         combined_ds = combined_ds.sortby('time')
 
-        # Assuming variable names are x_wind_10m and y_wind_10m, adjust if necessary
-        if 'x_wind_10m' in combined_ds and 'y_wind_10m' in combined_ds:
-            combined_ds['wind_speed_10m'] = (combined_ds['x_wind_10m']**2 + combined_ds['y_wind_10m']**2)**0.5
-            combined_ds['wind_direction_10m'] = 180 + (180 / np.pi) * np.arctan2(combined_ds['x_wind_10m'], combined_ds['y_wind_10m'])
-            
-            # Calculate wind gust using the factor method
-            gust_factor = 1.5
-            combined_ds['wind_gust'] = combined_ds['wind_speed_10m'] * gust_factor
-            combined_ds['wind_gust'].attrs['long_name'] = f'Wind gust (factor method, factor={gust_factor})'
-            combined_ds['wind_gust'].attrs['units'] = 'm s**-1'
+        # Rename wind_speed_of_gust to wind_gust for consistency
+        if 'wind_speed_of_gust' in combined_ds:
+            combined_ds = combined_ds.rename({'wind_speed_of_gust': 'wind_gust'})
 
 
         zarr_exists = os.path.exists(ZARR_STORE_PATH_MET)

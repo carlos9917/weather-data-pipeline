@@ -24,8 +24,8 @@ PLOT_CONFIG = {
         'convert_to_celsius': True
     },
     'precipitation_amount': {
-        'title': 'Precipitation Rate',
-        'unit': 'mm/hr',
+        'title': 'Precipitation Amount',
+        'unit': 'kg/m^2',
         'cmap': 'Blues',
         'levels': np.linspace(0, 10, 11),
         'norm': mcolors.BoundaryNorm(boundaries=[0, 0.1, 0.5, 1, 2, 5, 10], ncolors=256)
@@ -34,7 +34,7 @@ PLOT_CONFIG = {
         'title': 'Total Cloud Cover',
         'unit': '%',
         'cmap': 'Greys_r',
-        'levels': np.linspace(0, 100, 11)
+        'levels': np.linspace(0, 1, 11) # From 0 to 1
     },
     'air_pressure_at_sea_level': {
         'title': 'Surface Pressure',
@@ -43,27 +43,22 @@ PLOT_CONFIG = {
         'levels': np.linspace(980, 1050, 15),
         'convert_to_hpa': True
     },
-    'wind_10m': {
-        'title': 'Wind at 10m',
+    'wind_speed_10m': {
+        'title': 'Wind Speed at 10m',
         'unit': 'm/s',
         'cmap': 'viridis',
-        'levels': np.linspace(0, 25, 11),
-        'speed_var': 'wind_speed_10m',
-        'u_var': 'x_wind_10m',
-        'v_var': 'y_wind_10m'
+        'levels': np.linspace(0, 25, 11)
     },
     'wind_gust': {
         'title': 'Wind Gust',
         'unit': 'm/s',
         'cmap': 'plasma',
-        'levels': np.linspace(0, 35, 15),
-        'speed_var': 'wind_gust',
+        'levels': np.linspace(0, 35, 15)
     }
 }
 
-def plot_map(ds_single, config, plots_dir, time_str, time_val):
-    var_name = config.get('speed_var', list(PLOT_CONFIG.keys())[list(PLOT_CONFIG.values()).index(config)])
-    data = ds_single[var_name]
+def plot_map(ds_single, var_key, config, plots_dir, time_str, time_val):
+    data = ds_single[var_key]
 
     # Ensure 2D [lat, lon]
     for dim in data.dims:
@@ -98,27 +93,8 @@ def plot_map(ds_single, config, plots_dir, time_str, time_val):
     fig.colorbar(cf, ax=ax, orientation='vertical',
                  label=f"{config['title']} ({config['unit']})", pad=0.05)
 
-    # Wind barbs
-    if 'u_var' in config and 'v_var' in config:
-        u_wind = ds_single[config['u_var']]
-        v_wind = ds_single[config['v_var']]
-
-        for dim in u_wind.dims:
-            if dim not in ["latitude", "longitude"]:
-                u_wind = u_wind.isel({dim: 0})
-        for dim in v_wind.dims:
-            if dim not in ["latitude", "longitude"]:
-                v_wind = v_wind.isel({dim: 0})
-
-        u_wind = u_wind.squeeze().values
-        v_wind = v_wind.squeeze().values
-
-        skip = max(1, len(ds_single['longitude']) // 25)
-        ax.barbs(ds_single['longitude'][::skip], ds_single['latitude'][::skip],
-                 u_wind[::skip, ::skip], v_wind[::skip, ::skip],
-                 length=6, transform=ccrs.PlateCarree(), pivot='middle')
-
-    ax.set_title(f"{config['title']}\n{time_val.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=16)
+    ax.set_title(f"{config['title']}
+{time_val.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=16)
 
     plot_filename = f"met_{var_name}_{time_val.strftime('%Y%m%d_%H%M')}.png"
     plot_path = os.path.join(plots_dir, plot_filename)
@@ -165,7 +141,7 @@ def create_met_visualizations(date_str, cycle):
                 
                 if all(v in ds_single for v in required_vars):
                     try:
-                        plot_map(ds_single, config, plots_dir, time_str, time_val)
+                        plot_map(ds_single, var_key, config, plots_dir, time_str, time_val)
                     except Exception as e:
                         print(f"Failed to create plot for {var_key} at {time_str}: {e}")
                 else:
