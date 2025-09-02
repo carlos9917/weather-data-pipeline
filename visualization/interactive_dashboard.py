@@ -59,7 +59,7 @@ app.layout = html.Div([
     html.H1("Interactive Weather Forecast Dashboard", style={'textAlign': 'center'}),
     
     html.Div(className='row', children=[
-        html.Div(className='three columns', children=[
+        html.Div(className='four columns', children=[
             html.Label("Select GFS Cycle (Init Time):"),
             dcc.Dropdown(
                 id='init-time-dropdown',
@@ -67,21 +67,12 @@ app.layout = html.Div([
                 value=default_init_time
             ),
         ]),
-        html.Div(className='three columns', children=[
+        html.Div(className='four columns', children=[
             html.Label("Select Weather Variable:"),
             dcc.Dropdown(
                 id='variable-dropdown',
                 # Options will be populated by callback
             ),
-        ]),
-        html.Div(className='six columns', children=[
-            html.Label("Select Forecast Hour:"),
-            dcc.Slider(
-                id='time-slider',
-                min=0,
-                # Max and marks will be populated by callback
-            ),
-            html.Div(id='slider-output-container', style={'textAlign': 'center', 'marginTop': '10px'})
         ]),
     ]),
     
@@ -118,54 +109,14 @@ def update_variable_dropdown(init_time):
     return options, default_var
 
 @app.callback(
-    Output('time-slider', 'max'),
-    Output('time-slider', 'marks'),
-    Output('time-slider', 'value'),
-    Input('init-time-dropdown', 'value'))
-def update_time_slider(init_time):
-    """Updates the time slider based on the selected GFS cycle."""
-    if ds is None or init_time is None:
-        return 0, {}, 0
-        
-    ds_cycle = ds.sel(init_time=init_time)
-    time_coords = ds_cycle.time.values
-    
-    if len(time_coords) == 0:
-        return 0, {}, 0 # Handle case with no time steps
-
-    max_val = len(time_coords) - 1
-    
-    # Create marks for every 3 hours, ensuring `i` is within bounds
-    marks = {}
-    if max_val > 0:
-        for i in range(0, len(time_coords), 3):
-            if i < len(time_coords):
-                # Calculate forecast hour relative to init_time
-                forecast_hour = (pd.to_datetime(time_coords[i]) - pd.to_datetime(init_time)).total_seconds() / 3600
-                marks[i] = f"{int(forecast_hour)}h"
-
-    return max_val, marks, 0
-
-@app.callback(
-    Output('slider-output-container', 'children'),
-    Input('time-slider', 'value'),
-    Input('init-time-dropdown', 'value'))
-def update_slider_output(value, init_time):
-    if ds is None or init_time is None: return "No data"
-    
-    ds_cycle = ds.sel(init_time=init_time)
-    selected_time = pd.to_datetime(ds_cycle.time.values[value])
-    return f"Forecast Valid Time: {selected_time.strftime('%Y-%m-%d %H:%M')} UTC"
-
-@app.callback(
     Output('weather-map', 'figure'),
     Input('variable-dropdown', 'value'),
-    Input('time-slider', 'value'),
     Input('init-time-dropdown', 'value'))
-def update_map(selected_variable, time_index, init_time):
+def update_map(selected_variable, init_time):
     if ds is None or selected_variable is None or init_time is None:
         return go.Figure()
 
+    time_index = 0 # Default to the first forecast hour
     ds_cycle = ds.sel(init_time=init_time)
     var_config = VARIABLE_CONFIG[selected_variable]
     data_slice = ds_cycle[selected_variable].isel(time=time_index)
