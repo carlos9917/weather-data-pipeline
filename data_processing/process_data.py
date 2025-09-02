@@ -116,9 +116,9 @@ def process_gfs_data_zarr(date_str, cycle):
             # Load variables individually or in compatible groups to avoid cfgrib merge errors
             datasets_to_merge = []
             variable_filters = [
-                {'typeOfLevel': 'heightAboveGround', 'level': 100},
-                {'typeOfLevel': 'heightAboveGround', 'level': 10},
-                {'typeOfLevel': 'heightAboveGround', 'level': 2},
+                {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': ['u', 'v']},
+                {'typeOfLevel': 'heightAboveGround', 'level': 10, 'shortName': ['u', 'v']},
+                {'typeOfLevel': 'heightAboveGround', 'level': 2, 'shortName': 't'},
                 {'typeOfLevel': 'surface', 'shortName': 'sp'},
                 {'typeOfLevel': 'surface', 'shortName': 'tp'},
                 {'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
@@ -140,16 +140,12 @@ def process_gfs_data_zarr(date_str, cycle):
                 continue
 
             # Merge the individually loaded datasets
-            ds = xr.merge(datasets_to_merge, compat='override')
-            print(f"Variables found in merged dataset: {list(ds.variables)}")
+            ds = xr.merge(datasets_to_merge)
 
             # Standardize time coordinate
             if 'valid_time' in ds.coords and 'time' not in ds.coords:
                 ds = ds.rename({'valid_time': 'time'})
             
-            if 'valid_time' in ds.coords:
-                ds = ds.drop_vars('valid_time')
-
             if 'time' not in ds.coords:
                 print(f"Warning: No time coordinate in {file_path}. Skipping.")
                 continue
