@@ -63,7 +63,7 @@ def plot_map(ds_single, config, plots_dir, time_str, time_val):
 
     # Ensure 2D [lat, lon]
     for dim in data.dims:
-        if dim not in ["latitude", "longitude"]:
+        if dim.lower() not in ["latitude", "longitude", "x", "y"]:
             data = data.isel({dim: 0})
     data = data.squeeze().values
 
