@@ -93,8 +93,7 @@ def plot_map(ds_single, var_key, config, plots_dir, time_str, time_val):
     fig.colorbar(cf, ax=ax, orientation='vertical',
                  label=f"{config['title']} ({config['unit']})", pad=0.05)
 
-    ax.set_title(f"{config['title']}
-{time_val.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=16)
+    ax.set_title(f"{config['title']} {time_val.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=16)
 
     plot_filename = f"met_{var_name}_{time_val.strftime('%Y%m%d_%H%M')}.png"
     plot_path = os.path.join(plots_dir, plot_filename)
