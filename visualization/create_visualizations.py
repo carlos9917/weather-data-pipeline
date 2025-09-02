@@ -126,7 +126,7 @@ def create_visualizations(date_str, cycle):
     """
     Creates map visualizations for all configured variables from the Zarr store.
     """
-    zarr_store_path = os.path.join('data', 'processed', f'gfs_{{date_str}}_{{cycle}}.zarr')
+    zarr_store_path = os.path.join('data', 'processed', f'gfs_{date_str}_{cycle}.zarr')
     if not os.path.exists(zarr_store_path):
         print(f"Error: Zarr store not found at {zarr_store_path}")
         return
