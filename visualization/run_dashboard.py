@@ -37,24 +37,29 @@ def check_requirements():
     return True
 
 def check_data_availability():
-    """Check if the GFS Zarr store is available."""
+    """Check if any processed Zarr data is available."""
     print("Checking data availability...")
     
-    try:
-        from config import ZARR_STORE_PATH as ZARR_PATH_REL
-        zarr_store_path = project_root / ZARR_PATH_REL
-    except ImportError:
-        zarr_store_path = project_root / "data/processed/gfs_data.zarr"
+    processed_dir = project_root / "data" / "processed"
 
-    if os.path.exists(zarr_store_path):
-        print(f"✓ GFS Zarr data store found at: {zarr_store_path}")
+    if not processed_dir.exists():
+        print(f"\nWARNING: Processed data directory not found at {processed_dir}")
+        print("You may need to run the data processing pipeline first.")
+        return False
+
+    # Check for any Zarr store in the directory
+    zarr_stores = list(processed_dir.glob('*.zarr'))
+
+    if zarr_stores:
+        print(f"✓ Found {len(zarr_stores)} processed Zarr data store(s) in: {processed_dir}")
         return True
     else:
-        print("\nWARNING: Processed GFS Zarr store not found!")
-        print(f"Expected at: {zarr_store_path}")
+        print("\nWARNING: No processed Zarr stores found!")
+        print(f"Expected data in the format 'gfs_YYYYMMDD_CC.zarr' or 'met_data_YYYYMMDD_CC.zarr' in {processed_dir}")
         print("You may need to run the full data pipeline first.")
         print("Example: ./scr/run_pipeline.sh")
         return False
+
 
 def run_dashboard(host='0.0.0.0', port=8050, debug=True):
     """Run the dashboard."""
