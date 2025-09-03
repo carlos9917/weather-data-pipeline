@@ -232,8 +232,18 @@ def update_timeseries(selected_variable, selected_point, cycle_value, time_index
 
     lat = selected_point['lat']
     lon = selected_point['lon']
-    
-    point_data = ds[selected_variable].sel(latitude=lat, longitude=lon, method='nearest')
+
+    # Check if latitude is a dimension for selection method
+    if 'latitude' in ds.dims:
+        # GFS-style data with 1D lat/lon dimensions
+        point_data = ds[selected_variable].sel(latitude=lat, longitude=lon, method='nearest')
+    else:
+        # MET-style data with 2D lat/lon coordinates on x/y dimensions
+        # Find the nearest grid point index
+        dist_sq = (ds.latitude - lat)**2 + (ds.longitude - lon)**2
+        min_dist_idx = dist_sq.values.argmin()
+        y_idx, x_idx = np.unravel_index(min_dist_idx, ds.latitude.shape)
+        point_data = ds[selected_variable].isel(y=y_idx, x=x_idx)
     
     var_config = VARIABLE_CONFIG[selected_variable]
     timeseries_data = var_config['convert'](point_data)
