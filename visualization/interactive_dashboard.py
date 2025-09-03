@@ -187,7 +187,7 @@ def update_map(selected_variable, cycle_value, time_index):
         y=ds.latitude.values,
         colorscale=var_config['colorscale'],
         colorbar_title=var_config['unit'],
-        contours=dict(coloring='fill'),
+        contours=dict(coloring='lines'),
         hoverinfo='x+y+z'
     ))
 
@@ -195,10 +195,17 @@ def update_map(selected_variable, cycle_value, time_index):
         title=f"{var_config['label']} at {pd.to_datetime(ds.time.values[time_index]).strftime('%Y-%m-%d %H:%M')} UTC",
         xaxis_title="Longitude",
         yaxis_title="Latitude",
-        xaxis=dict(range=[EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max']]),
-        yaxis=dict(range=[EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']]),
-        margin={"r":0,"t":40,"l":0,"b":0"},
-        autosize=True
+        geo=dict(
+            scope='europe',
+            projection_type='mercator',
+            center=dict(
+                lon=(EUROPE_BOUNDS['lon_min'] + EUROPE_BOUNDS['lon_max']) / 2,
+                lat=(EUROPE_BOUNDS['lat_min'] + EUROPE_BOUNDS['lat_max']) / 2
+            ),
+            lataxis_range=[EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']],
+            lonaxis_range=[EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max']]
+        ),
+        margin={"r":0,"t":40,"l":0,"b":0}
     )
     return fig
 
@@ -226,16 +233,8 @@ def update_timeseries(selected_variable, selected_point, cycle_value, time_index
     lat = selected_point['lat']
     lon = selected_point['lon']
     
-    # Handle different coordinate systems
-    if 'latitude' in ds.dims and 'longitude' in ds.dims:
-        # GFS-style: 1D lat/lon coordinates, use .sel()
-        point_data = ds[selected_variable].sel(latitude=lat, longitude=lon, method='nearest')
-    else:
-        # MET-style: 2D lat/lon variables, find nearest point manually
-        abs_diff = (ds.latitude - lat)**2 + (ds.longitude - lon)**2
-        y_idx, x_idx = np.unravel_index(np.argmin(abs_diff.values), abs_diff.shape)
-        point_data = ds[selected_variable].isel(y=y_idx, x=x_idx)
-
+    point_data = ds[selected_variable].sel(latitude=lat, longitude=lon, method='nearest')
+    
     var_config = VARIABLE_CONFIG[selected_variable]
     timeseries_data = var_config['convert'](point_data)
     
