@@ -1,63 +1,106 @@
 # Weather Data Pipeline
 
-This project is a prototype system to stream and visualize operational weather forecasts. It demonstrates the ability to source data, design a pipeline, select relevant parameters, and produce actionable visualizations.
+This project implements an end-to-end pipeline that downloads, processes, and visualizes operational weather forecasts from both global (GFS) and regional (MET Nordic) models. It is designed to be automated, providing actionable, time-stepped map visualizations for decision support in various industries.
 
-## Directory Structure
+![Dashboard Snapshot](snapshot_dashboard.png)
+
+## 📋 Features
+
+- **Dual Model Ingestion**: Fetches data from the GFS global model and the MET Nordic regional model.
+- **Automated Orchestration**: A scheduler runs the entire pipeline 24/7, ensuring data is always up-to-date.
+- **Efficient Storage**: Processed data is stored in the cloud-native Zarr format, optimized for multi-dimensional weather data.
+- **Static & Interactive Visualizations**:
+    - Generates static map images for each forecast step.
+    - Provides a web-based interactive dashboard for dynamic exploration of the data.
+- **Key Meteorological Parameters**: Processes wind, temperature, precipitation, cloud cover, surface pressure, and wind gusts.
+
+## 🏗️ Repository Structure
 
 ```
 weather-data-pipeline/
-├── data_ingestion/
-│   ├── __init__.py
-│   ├── gfs_downloader.py
-│   └── regional_model_downloader.py
-├── data_processing/
-│   ├── __init__.py
-│   └── process_data.py
-├── storage/
-│   └── processed_data/
-├── visualization/
-│   ├── __init__.py
-│   └── create_visualizations.py
-├── orchestration/
-│   ├── __init__.py
-│   └── pipeline_scheduler.py
-├── config.py
-├── main.py
-├── requirements.txt
-└── README.md
+├── config.py                 # Main configuration file (e.g., map boundaries)
+├── data_ingestion/           # Scripts for downloading forecast data
+├── data_processing/          # Scripts for processing raw GRIB2 files
+├── doc/                      # Project documentation
+├── orchestration/            # Pipeline scheduling and automation logic
+├── scr/                      # Main executable scripts
+│   └── run_pipeline.sh       # Master script to run all pipeline functions
+├── visualization/            # Scripts for creating maps and the dashboard
+│   ├── plots/                # Output directory for static map images
+│   └── run_dashboard.py      # Script to launch the interactive dashboard
+├── requirements.txt          # Python dependencies
+└── README.md                 # This file
 ```
 
-## Component Breakdown
+## 🚀 Getting Started
 
-### 1. `data_ingestion/`
+### Prerequisites
+- Python 3.10+
+- Linux/macOS (tested on Linux)
+- `curl` and `bash` for installing `uv`.
 
-*   **Purpose:** Fetches raw forecast data from the global and regional weather models.
-*   **`gfs_downloader.py`:** This script will download data from the Global Forecast System (GFS).
-*   **`regional_model_downloader.py`:** This script will download data from a regional model covering Northern Europe/Scandinavia.
+### Installation
 
-### 2. `data_processing/`
+1.  **Clone the repository**
+    ```bash
+    git clone <repository-url>
+    cd weather-data-pipeline
+    ```
 
-*   **Purpose:** Transforms the raw data into a clean and usable format.
-*   **`process_data.py`:** This script will read the downloaded GRIB or NetCDF files, select the required variables (precipitation, cloud cover, wind), and convert the data to a more efficient format like Zarr or NetCDF.
+2.  **Set up the virtual environment with `uv`**
+    This project uses `uv` for fast and efficient package management.
 
-### 3. `storage/`
+    ```bash
+    # Install uv if you don't have it
+    curl -LsSf https://astral.sh/uv/install.sh | sh
 
-*   **Purpose:** Stores the processed data.
-*   **`processed_data/`:** This directory will hold the processed data in a format like Zarr or NetCDF.
+    # Create and activate a virtual environment
+    uv venv .venv --python 3.10
+    source .venv/bin/activate
 
-### 4. `visualization/`
+    # Install the required Python dependencies
+    uv pip install -r requirements.txt
+    ```
 
-*   **Purpose:** Creates visualizations from the processed data.
-*   **`create_visualizations.py`:** This script will generate time-stepped map visualizations of the selected parameters.
+## ⚙️ Usage
 
-### 5. `orchestration/`
+The entire pipeline is controlled by the `scr/run_pipeline.sh` script, which offers several modes of operation.
 
-*   **Purpose:** Automates the pipeline to run continuously.
-*   **`pipeline_scheduler.py`:** This script will schedule the pipeline to run at regular intervals.
+### Running the Full Pipeline
 
-### 6. Root Files
+You can run the pipeline to download and process the latest available weather data.
 
-*   **`config.py`:** Stores configuration variables for the pipeline.
-*   **`main.py`:** The main entry point for the application.
-*   **`requirements.txt`:** Lists the Python dependencies for the project.
-*   **`README.md`:** This file, providing an overview of the project.
+-   **Default Mode**: Automatically finds the most recent forecast cycle and runs the full pipeline. This is the most common command for a single run.
+    ```bash
+    ./scr/run_pipeline.sh default
+    ```
+
+-   **Manual Mode**: Run the pipeline for a specific historical date and forecast cycle.
+    ```bash
+    # Usage: ./scr/run_pipeline.sh manual --date <YYYYMMDD> --cycle <00|06|12|18>
+    ./scr/run_pipeline.sh manual --date 20250903 --cycle 12
+    ```
+
+-   **Scheduler Mode**: Run the pipeline continuously in a 24/7 loop. It will process the latest data, then wait 6 hours before running again.
+    ```bash
+    ./scr/run_pipeline.sh scheduler
+    ```
+
+### Viewing the Results
+
+After the pipeline has run successfully, you can view the output in two ways:
+
+1.  **Static Maps**
+    Generated `.png` map images for each forecast variable and time step are saved in the `visualization/plots/` directory, organized by date and cycle.
+
+2.  **Interactive Dashboard**
+    To explore the data dynamically, launch the web-based dashboard.
+
+    ```bash
+    ./scr/run_pipeline.sh dashboard
+    ```
+    Then, open your web browser and navigate to the URL shown in the terminal (usually `http://127.0.0.1:8050`).
+
+## 🔧 Configuration
+
+You can customize the pipeline's behavior by editing `config.py`. The most common setting to change is `EUROPE_BOUNDS` to adjust the geographic area of the output maps.
