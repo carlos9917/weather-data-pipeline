@@ -144,11 +144,10 @@ def process_gfs_data_zarr(date_str, cycle):
             print(f"Variables found in merged dataset: {list(ds.variables)}")
 
             # Standardize time coordinate
-            if 'valid_time' in ds.coords and 'time' not in ds.coords:
-                ds = ds.rename({'valid_time': 'time'})
-            
             if 'valid_time' in ds.coords:
-                ds = ds.drop_vars('valid_time')
+                if 'time' in ds.coords:
+                    ds = ds.drop_vars('time')
+                ds = ds.rename({'valid_time': 'time'})
 
             if 'time' not in ds.coords:
                 print(f"Warning: No time coordinate in {file_path}. Skipping.")

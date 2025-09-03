@@ -42,7 +42,8 @@ def process_met_data_zarr(date_str, cycle):
         'wind_speed_10m',
         'wind_speed_of_gust',
         'latitude',
-        'longitude'
+        'longitude',
+        'forecast_reference_time'
     ]
 
     try:
@@ -57,6 +58,12 @@ def process_met_data_zarr(date_str, cycle):
         # Rename wind_speed_of_gust to wind_gust for consistency
         if 'wind_speed_of_gust' in ds:
             ds = ds.rename({'wind_speed_of_gust': 'wind_gust'})
+
+        # Add init_time dimension, from forecast_reference_time
+        if 'forecast_reference_time' in ds:
+            init_time_val = ds['forecast_reference_time'].values
+            ds = ds.assign_coords(init_time=init_time_val).expand_dims('init_time')
+            ds = ds.drop_vars('forecast_reference_time')
 
         print("Writing to Zarr store...")
         # The computation will happen here, streamed to the Zarr store
