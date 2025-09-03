@@ -179,32 +179,22 @@ def update_map(selected_variable, cycle_value, time_index):
     var_config = VARIABLE_CONFIG[selected_variable]
     data_slice = ds[selected_variable].isel(time=time_index)
     
-    converted_data = var_config['convert'](data_slice)
-
-    fig = go.Figure(go.Contour(
-        z=converted_data.values,
-        x=ds.longitude.values,
-        y=ds.latitude.values,
+    fig = go.Figure(go.Densitymapbox(
+        lat=ds.latitude.values.flatten(),
+        lon=ds.longitude.values.flatten(),
+        z=converted_data.values.flatten(),
+        radius=10,
         colorscale=var_config['colorscale'],
         colorbar_title=var_config['unit'],
-        contours=dict(coloring='lines'),
-        hoverinfo='x+y+z'
+        hoverinfo='skip'
     ))
 
     fig.update_layout(
         title=f"{var_config['label']} at {pd.to_datetime(ds.time.values[time_index]).strftime('%Y-%m-%d %H:%M')} UTC",
-        xaxis_title="Longitude",
-        yaxis_title="Latitude",
-        geo=dict(
-            scope='europe',
-            projection_type='mercator',
-            center=dict(
-                lon=(EUROPE_BOUNDS['lon_min'] + EUROPE_BOUNDS['lon_max']) / 2,
-                lat=(EUROPE_BOUNDS['lat_min'] + EUROPE_BOUNDS['lat_max']) / 2
-            ),
-            lataxis_range=[EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']],
-            lonaxis_range=[EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max']]
-        ),
+        mapbox_style="open-street-map",
+        mapbox_center_lon=(EUROPE_BOUNDS['lon_min'] + EUROPE_BOUNDS['lon_max']) / 2,
+        mapbox_center_lat=(EUROPE_BOUNDS['lat_min'] + EUROPE_BOUNDS['lat_max']) / 2,
+        mapbox_zoom=3.5,
         margin={"r":0,"t":40,"l":0,"b":0}
     )
     return fig
