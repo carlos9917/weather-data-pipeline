@@ -68,13 +68,17 @@ def plot_map(ds_single, var_key, config, plots_dir, time_val):
     Generates and saves a single map plot for a given variable and time step.
     """
     var_name_to_plot = config.get('speed_var', var_key)
-    data = ds_single[var_name_to_plot]
-
-    # Ensure data is 2D [lat, lon]
-    for dim in data.dims:
-        if dim not in ["latitude", "longitude"]:
-            data = data.isel({dim: 0})
-    data = data.squeeze().values
+    
+    # Select data for the specific time and squeeze out other dims like init_time
+    data_array = ds_single[var_name_to_plot]
+    
+    # Ensure data is 2D [lat, lon] by selecting first element from other dimensions
+    squeezable_dims = [dim for dim in data_array.dims if dim not in ['latitude', 'longitude']]
+    if squeezable_dims:
+        selection = {dim: 0 for dim in squeezable_dims}
+        data = data_array.isel(**selection).squeeze()
+    else:
+        data = data_array.squeeze()
 
     # Unit conversions
     if config.get('convert_to_celsius', False):
@@ -106,8 +110,16 @@ def plot_map(ds_single, var_key, config, plots_dir, time_val):
 
     # Wind barbs
     if 'u_var' in config and 'v_var' in config:
-        u_wind = ds_single[config['u_var']].squeeze().values
-        v_wind = ds_single[config['v_var']].squeeze().values
+        u_wind_array = ds_single[config['u_var']]
+        v_wind_array = ds_single[config['v_var']]
+        
+        if squeezable_dims:
+            u_wind = u_wind_array.isel(**selection).squeeze()
+            v_wind = v_wind_array.isel(**selection).squeeze()
+        else:
+            u_wind = u_wind_array.squeeze()
+            v_wind = v_wind_array.squeeze()
+            
         skip = max(1, len(ds_single['longitude']) // 25)
         ax.barbs(ds_single['longitude'][::skip], ds_single['latitude'][::skip],
                  u_wind[::skip, ::skip], v_wind[::skip, ::skip],

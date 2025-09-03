@@ -59,13 +59,15 @@ PLOT_CONFIG = {
 
 def plot_map(ds_single, config, plots_dir, time_str, time_val):
     var_name = list(PLOT_CONFIG.keys())[list(PLOT_CONFIG.values()).index(config)]
-    data = ds_single[var_name]
+    data_array = ds_single[var_name]
 
-    # Ensure 2D [lat, lon]
-    for dim in data.dims:
-        if dim.lower() not in ["latitude", "longitude", "x", "y"]:
-            data = data.isel({dim: 0})
-    data = data.squeeze().values
+    # Ensure data is 2D [lat, lon] by selecting first element from other dimensions
+    squeezable_dims = [dim for dim in data_array.dims if dim.lower() not in ['latitude', 'longitude', 'x', 'y']]
+    if squeezable_dims:
+        selection = {dim: 0 for dim in squeezable_dims}
+        data = data_array.isel(**selection).squeeze()
+    else:
+        data = data_array.squeeze()
 
     if config.get('convert_to_celsius', False):
         data = data - 273.15
@@ -107,19 +109,17 @@ def create_met_visualizations(date_str, cycle):
     """
     Creates map visualizations for all configured variables from the MET Zarr store.
     """
-    if not os.path.exists(ZARR_STORE_PATH_MET):
-        print(f"Error: MET Zarr store not found at {ZARR_STORE_PATH_MET}")
+    zarr_store_path = os.path.join('data', 'processed', f'met_data_{date_str}_{cycle}.zarr')
+    if not os.path.exists(zarr_store_path):
+        print(f"Error: MET Zarr store not found at {zarr_store_path}")
         return
 
     plots_dir = os.path.join('visualization', 'plots', 'met', date_str, cycle)
     os.makedirs(plots_dir, exist_ok=True)
     
     try:
-        ds = xr.open_zarr(ZARR_STORE_PATH_MET)
-        
-        start_time = pd.to_datetime(f"{date_str} {cycle}:00")
-        end_time = start_time + pd.Timedelta(hours=72)
-        ds_cycle = ds.sel(time=slice(start_time, end_time))
+        ds = xr.open_zarr(zarr_store_path)
+        ds_cycle = ds.isel(init_time=0) if 'init_time' in ds.dims else ds
 
         if not ds_cycle.time.size:
             print(f"No data found for date {date_str} and cycle {cycle}.")
@@ -133,13 +133,7 @@ def create_met_visualizations(date_str, cycle):
             time_str = time_val.strftime('%Y-%m-%d %H:%M UTC')
             
             for var_key, config in PLOT_CONFIG.items():
-                required_vars = [config.get('speed_var', var_key)]
-                if 'u_var' in config: 
-                    required_vars.append(config['u_var'])
-                if 'v_var' in config: 
-                    required_vars.append(config['v_var'])
-                
-                if all(v in ds_single for v in required_vars):
+                if var_key in ds_single:
                     try:
                         plot_map(ds_single, config, plots_dir, time_str, time_val)
                     except Exception as e:
