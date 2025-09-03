@@ -26,14 +26,27 @@ def get_available_cycles():
         return cycles
 
     for f in processed_dir.glob('*.zarr'):
-        parts = f.stem.split('_')
-        if len(parts) >= 3:
-            model, date, cycle = parts[0], parts[1], parts[2]
-            label = f"{date[:4]}-{date[4:6]}-{date[6:]} {cycle}Z"
-            value = f"{model.upper()}|{date}|{cycle}"
-            if model.upper() in cycles:
-                cycles[model.upper()].append({'label': label, 'value': value})
-    
+        stem = f.stem
+        model_key, model_val, date, cycle_str = None, None, None, None
+
+        if stem.startswith('gfs_'):
+            parts = stem.split('_')
+            if len(parts) == 3:
+                model_val, date, cycle_str = parts
+                model_key = 'GFS'
+        elif stem.startswith('met_data_'):
+            parts = stem.split('_')
+            if len(parts) == 4:
+                model_val = f"{parts[0]}_{parts[1]}"
+                date = parts[2]
+                cycle_str = parts[3]
+                model_key = 'MET'
+
+        if all((model_key, model_val, date, cycle_str)):
+            label = f"{date[:4]}-{date[4:6]}-{date[6:]} {cycle_str}Z ({model_key})"
+            value = f"{model_val.upper()}|{date}|{cycle_str}"
+            cycles[model_key].append({'label': label, 'value': value})
+
     # Sort by label descending
     for model in cycles:
         cycles[model] = sorted(cycles[model], key=lambda x: x['label'], reverse=True)
