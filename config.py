@@ -36,13 +36,18 @@ GFS_VARIABLES = [
     'TMP:2 m above ground',     # Temperature at 2m
     'TCDC:entire atmosphere',   # Total cloud cover
     'PRATE:surface',            # Precipitation rate
-    'PRES:surface'              # Surface pressure
+    'PRES:surface',              # Surface pressure
+    #    'TKE:planetary boundary layer',    # Turbulent Kinetic Energy
+    'UFLX:surface',             # U-component of momentum flux at surface
+    'VFLX:surface',              # V-component of momentum flux at surface
+    'GUST:surface'              # Wind gust
 ]
 
 # Database settings
 OUTPUT_FORMAT = "zarr" # "duckdb" or "zarr"
 DATABASE_PATH = "data/processed/gfs_data.duckdb"
 ZARR_STORE_PATH = "data/processed/gfs_data.zarr"
+ZARR_STORE_PATH_MET = "data/processed/met_data.zarr"
 
 # Logging settings
 LOG_LEVEL = "INFO"

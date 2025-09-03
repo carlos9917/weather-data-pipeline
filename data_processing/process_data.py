@@ -96,10 +96,11 @@ def process_gfs_data_duckdb(date_str, cycle):
 
 def process_gfs_data_zarr(date_str, cycle):
     """
-    Processes raw GFS data and appends it to a Zarr store.
+    Processes raw GFS data and stores it in a cycle-specific Zarr store.
     """
     raw_data_dir = os.path.join('data', 'raw', 'gfs', date_str, cycle)
-    os.makedirs(os.path.dirname(ZARR_STORE_PATH), exist_ok=True)
+    zarr_store_path = os.path.join('data', 'processed', f'gfs_{date_str}_{cycle}.zarr')
+    os.makedirs(os.path.dirname(zarr_store_path), exist_ok=True)
 
     if not os.path.exists(raw_data_dir):
         print(f"Raw data directory not found: {raw_data_dir}")
@@ -108,142 +109,88 @@ def process_gfs_data_zarr(date_str, cycle):
     all_files = [os.path.join(raw_data_dir, f) for f in sorted(os.listdir(raw_data_dir))
                  if (f.endswith(".grib2") or f.startswith("gfs.")) and not f.endswith(".idx")]
 
-    # Collect all datasets first, then process together
-    all_datasets = []
-    
+    all_datasets_for_cycle = []
     for file_path in all_files:
         print(f"Processing {file_path}")
         try:
-            datasets = []
-            variable_filters = {
-                'wind100': {'typeOfLevel': 'heightAboveGround', 'level': 100}, 
-                'wind10': {'typeOfLevel': 'heightAboveGround', 'level': 10}, 
-                'temp': {'typeOfLevel': 'heightAboveGround', 'level': 2},
-                'sp': {'typeOfLevel': 'surface', 'shortName': 'sp'},
-                'precip': {'typeOfLevel': 'surface', 'shortName': 'tp'}, 
-                'cloud': {'stepType': 'instant', 'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
-                'prate': {'stepType': 'instant', 'typeOfLevel': 'surface', 'shortName': 'prate'},
-            }
-            
-            for var, filter_keys in variable_filters.items():
-                try:
-                    ds_var = xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filter_keys})
-                    datasets.append(ds_var)
-                except (ValueError, KeyError) as e:
-                    print(f"Warning: Could not load variable group '{var}' from {file_path}. Reason: {e}")
+            # Load variables individually or in compatible groups to avoid cfgrib merge errors
+            datasets_to_merge = []
+            variable_filters = [
+                {'typeOfLevel': 'heightAboveGround', 'level': 100},
+                {'typeOfLevel': 'heightAboveGround', 'level': 10},
+                {'typeOfLevel': 'heightAboveGround', 'level': 2},
+                {'typeOfLevel': 'surface', 'shortName': 'sp'},
+                {'typeOfLevel': 'surface', 'shortName': 'tp'},
+                {'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
+                {'typeOfLevel': 'surface', 'shortName': 'prate'},
+                {'typeOfLevel': 'surface', 'shortName': 'gust'},
+            ]
 
-            if not datasets:
+            for filters in variable_filters:
+                try:
+                    ds_var = xr.open_dataset(file_path, engine="cfgrib", backend_kwargs={'filter_by_keys': filters})
+                    datasets_to_merge.append(ds_var)
+                except Exception as e:
+                    # This is expected if a variable is not in the file
+                    # print(f"Info: Could not load variable with filter {filters} from {file_path}. Reason: {e}")
+                    pass
+            
+            if not datasets_to_merge:
                 print(f"Warning: No processable variables found in {file_path}. Skipping.")
                 continue
-            
-            # Align all datasets to the same time coordinate before merging
-            reference_time = None
-            aligned_datasets = []
-            
-            for ds in datasets:
-                # Standardize time coordinate name
-                if 'valid_time' in ds.coords and 'time' not in ds.coords:
-                    ds = ds.rename({'valid_time': 'time'})
-                
-                if 'time' not in ds.coords:
-                    print(f"Warning: No time coordinate found in dataset from {file_path}")
-                    continue
-                
-                # Ensure time is expanded as a dimension if it's just a scalar coordinate
-                if 'time' in ds.coords and 'time' not in ds.dims:
-                    ds = ds.expand_dims('time')
-                    
-                # Set reference time from first dataset
-                if reference_time is None:
-                    reference_time = ds.coords['time']
-                
-                # Only try to interpolate if both datasets have time as a dimension
-                # and if the time coordinates don't match
-                try:
-                    if ('time' in ds.dims and 'time' in reference_time.dims and 
-                        not ds.coords['time'].equals(reference_time)):
-                        print(f"Warning: Time coordinate mismatch in {file_path}, interpolating to reference time")
-                        ds = ds.interp(time=reference_time, method='nearest')
-                    elif 'time' not in ds.dims or 'time' not in reference_time.dims:
-                        # If either doesn't have time as dimension, just ensure they're both expanded
-                        pass
-                except Exception as interp_error:
-                    print(f"Warning: Could not interpolate time for {file_path}: {interp_error}")
-                
-                aligned_datasets.append(ds)
-            
-            if not aligned_datasets:
-                print(f"Warning: No datasets with valid time coordinates in {file_path}. Skipping.")
-                continue
-                
-            # Merge aligned datasets
-            ds = xr.merge(aligned_datasets, compat='override')
+
+            # Merge the individually loaded datasets
+            ds = xr.merge(datasets_to_merge, compat='override')
+            print(f"Variables found in merged dataset: {list(ds.variables)}")
+
+            # Standardize time coordinate
+            if 'valid_time' in ds.coords:
+                if 'time' in ds.coords:
+                    ds = ds.drop_vars('time')
+                ds = ds.rename({'valid_time': 'time'})
 
             if 'time' not in ds.coords:
-                print(f"FATAL: Could not find 'time' coordinate after merging in {file_path}. Skipping file.")
+                print(f"Warning: No time coordinate in {file_path}. Skipping.")
                 continue
 
-            # Calculate wind speed and direction if wind components are present
+            if 'time' not in ds.dims:
+                ds = ds.expand_dims('time')
+
+            # Calculate wind speed
             if 'u10' in ds and 'v10' in ds:
                 ds['wind_speed_10m'] = (ds['u10']**2 + ds['v10']**2)**0.5
-                ds['wind_direction_10m'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u10'], ds['v10'])
             if 'u100' in ds and 'v100' in ds:
                 ds['wind_speed_100m'] = (ds['u100']**2 + ds['v100']**2)**0.5
-                ds['wind_direction_100m'] = 180 + (180 / np.pi) * xr.ufuncs.arctan2(ds['u100'], ds['v100'])
             
-            # Rename variables to standard names
+            # Rename variables
             rename_map = {
-                'u10': 'u_wind_10m', 'v10': 'v_wind_10m',
-                'u100': 'u_wind_100m', 'v100': 'v_wind_100m', 't2m': 'temperature', 'tp': 'precipitation',
-                'tcc': 'cloud_cover', 'prate': 'precipitation_rate', 'sp': 'surface_pressure'
+                'u10': 'u_wind_10m', 'v10': 'v_wind_10m', 'u100': 'u_wind_100m', 
+                'v100': 'v_wind_100m', 't2m': 'temperature', 'tp': 'precipitation',
+                'tcc': 'cloud_cover', 'prate': 'precipitation_rate', 'sp': 'surface_pressure',
+                'gust': 'wind_gust'
             }
-            actual_rename_map = {k: v for k, v in rename_map.items() if k in ds.variables}
-            ds = ds.rename(actual_rename_map)
+            ds = ds.rename({k: v for k, v in rename_map.items() if k in ds})
             
-            # Ensure time is a dimension after all processing
-            if 'time' in ds.coords and 'time' not in ds.dims:
-                ds = ds.expand_dims('time')
-            
-            all_datasets.append(ds)
+            all_datasets_for_cycle.append(ds)
 
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
-    
-    # Now combine all datasets and write to Zarr
-    if all_datasets:
-        try:
-            print(f"Combining {len(all_datasets)} datasets...")
-            
-            # Concatenate all datasets along time dimension
-            combined_ds = xr.concat(all_datasets, dim='time')
-            
-            # Sort by time to ensure proper ordering
-            combined_ds = combined_ds.sortby('time')
-            
-            # Check if Zarr store exists
-            zarr_exists = os.path.exists(ZARR_STORE_PATH)
-            
-            if not zarr_exists:
-                print(f"Creating new Zarr store at {ZARR_STORE_PATH}")
-                combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
-            else:
-                print(f"Appending to existing Zarr store")
-                try:
-                    existing_ds = xr.open_zarr(ZARR_STORE_PATH)
-                    if 'time' in existing_ds.dims:
-                        combined_ds.to_zarr(ZARR_STORE_PATH, mode='a', append_dim="time")
-                    else:
-                        print(f"Warning: Existing Zarr store doesn't have time dimension. Creating new store.")
-                        combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
-                except Exception as zarr_error:
-                    print(f"Error accessing existing Zarr store: {zarr_error}")
-                    print(f"Creating new Zarr store.")
-                    combined_ds.to_zarr(ZARR_STORE_PATH, mode='w')
-                    
-        except Exception as e:
-            print(f"Error combining or writing datasets: {e}")
-    else:
-        print("No valid datasets to process.")
+
+    if not all_datasets_for_cycle:
+        print("No valid datasets to process for this cycle.")
+        return
+
+    # Combine all datasets for the cycle
+    print(f"Combining {len(all_datasets_for_cycle)} time steps for cycle {date_str}/{cycle}...")
+    cycle_ds = xr.concat(all_datasets_for_cycle, dim='time').sortby('time')
+
+    # Add init_time dimension
+    init_time = pd.to_datetime(f"{date_str} {cycle}:00")
+    cycle_ds = cycle_ds.assign_coords(init_time=init_time).expand_dims('init_time')
+
+    # Write to cycle-specific Zarr store, overwriting if it exists
+    print(f"Creating new Zarr store at {zarr_store_path}")
+    cycle_ds.to_zarr(zarr_store_path, mode='w')
 
 def process_gfs_data(date_str, cycle):
     """

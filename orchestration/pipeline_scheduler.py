@@ -16,7 +16,9 @@ def run_pipeline(date, cycle):
         ("data_ingestion/gfs_downloader.py", "Downloading GFS data"),
         ("data_ingestion/met_downloader.py", "Downloading MET Nordic data"),
         ("data_processing/process_data.py", "Processing GFS data"),
-        ("visualization/create_visualizations.py", "Creating visualizations")
+        ("visualization/create_visualizations.py", "Creating GFS visualizations"),
+        ("data_processing/process_met_data.py", "Processing MET data"),
+        ("visualization/create_met_visualizations.py", "Creating MET visualizations")
     ]
 
     for script_path, description in scripts:

@@ -48,6 +48,11 @@ def download_gfs_data(date_str, cycle):
         for var in GFS_VARIABLES:
             parts = var.split(':')
             var_name = parts[0]
+            
+            # TKE is not available for forecast hour 0
+            if var_name == 'TKE' and forecast_hour == 0:
+                continue
+
             level = parts[1].strip()
             params[f'var_{var_name}'] = 'on'
             if 'm above ground' in level:
@@ -57,6 +62,8 @@ def download_gfs_data(date_str, cycle):
                 params['lev_surface'] = 'on'
             elif 'entire atmosphere' in level:
                 params['lev_entire_atmosphere'] = 'on'
+            elif 'planetary boundary layer' in level:
+                params['lev_planetary_boundary_layer'] = 'on'
 
         try:
             response = requests.get(NOMADS_GRIB_FILTER_URL, params=params, stream=True)
