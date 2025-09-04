@@ -61,10 +61,13 @@ def check_data_availability():
         return False
 
 
-def run_dashboard(host='0.0.0.0', port=8050, debug=True):
+def run_dashboard(host='0.0.0.0', port=8050, debug=True,dashboard_type="simple"):
     """Run the dashboard."""
     try:
-        from visualization.interactive_dashboard import app
+        if dashboard_type == "simple":
+            from visualization.interactive_dashboard import app
+        elif dashboard_type == "scatter":
+            from visualization.interactive_dashboard_scatter import app
         
         print("\nStarting Weather Dashboard...")
         print(f"Dashboard will be available at: http://{host}:{port}")
@@ -87,6 +90,7 @@ def main():
     parser.add_argument("--port", type=int, default=8050, help="Port to bind to (default: 8050)")
     parser.add_argument("--no-debug", action="store_true", help="Disable debug mode")
     parser.add_argument("--check-only", action="store_true", help="Only check data availability, then exit")
+    parser.add_argument("--dashboard_type", type=str, default="simple",help="type of dashboard")
     
     args = parser.parse_args()
     
@@ -117,7 +121,7 @@ def main():
     
     # Run the dashboard
     debug_mode = not args.no_debug
-    run_dashboard(host=args.host, port=args.port, debug=debug_mode)
+    run_dashboard(host=args.host, port=args.port, debug=debug_mode,dashboard_type=args.dashboard_type)
 
 if __name__ == "__main__":
     main()
