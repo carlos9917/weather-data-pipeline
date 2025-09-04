@@ -78,6 +78,34 @@ def load_dataset(cycle_value):
         print(f"Error loading Zarr store {zarr_path}: {e}")
         return None
 
+def downsample_data(data_array, lon_coords, lat_coords, max_points=10000):
+    """
+    Downsample data array and coordinates to reduce memory usage while preserving spatial patterns.
+    """
+    total_points = data_array.size
+    if total_points <= max_points:
+        return data_array, lon_coords, lat_coords
+    
+    # Calculate decimation factor
+    decimation_factor = max(1, int(np.sqrt(total_points / max_points)))
+    print(f"Downsampling by factor of {decimation_factor} (from {total_points} to ~{total_points//(decimation_factor**2)} points)")
+    
+    # Downsample data and coordinates
+    if len(data_array.shape) == 2:
+        downsampled_data = data_array[::decimation_factor, ::decimation_factor]
+        if len(lon_coords.shape) == 1:
+            downsampled_lon = lon_coords[::decimation_factor]
+            downsampled_lat = lat_coords[::decimation_factor]
+        else:
+            downsampled_lon = lon_coords[::decimation_factor, ::decimation_factor]
+            downsampled_lat = lat_coords[::decimation_factor, ::decimation_factor]
+    else:
+        downsampled_data = data_array[::decimation_factor]
+        downsampled_lon = lon_coords[::decimation_factor]
+        downsampled_lat = lat_coords[::decimation_factor]
+    
+    return downsampled_data, downsampled_lon, downsampled_lat
+
 VARIABLE_CONFIG = {
     'temperature': {'label': 'Temperature (2m)', 'unit': '°C', 'colorscale': 'RdYlBu_r', 'convert': lambda x: x - 273.15},
     'air_temperature_2m': {'label': 'Temperature (2m)', 'unit': '°C', 'colorscale': 'RdYlBu_r', 'convert': lambda x: x - 273.15},
@@ -120,23 +148,13 @@ app.layout = html.Div([
     html.Div(className='row', children=[
         html.Div(className='seven columns', children=[
             dcc.Loading(dcc.Graph(id='weather-map')),
-            html.Div([
-                html.Label("Select Time:"),
-                dcc.Slider(
-                    id='time-slider',
-                    min=0,
-                    max=10,  # Will be updated dynamically
-                    value=0,
-                    marks={},
-                    step=1
-                )
-            ], id='time-slider-container', style={'marginTop': 20})
+            html.Div(id='time-slider-container', style={'marginTop': 20})
         ]),
         html.Div(className='five columns', children=[
             dcc.Loading(dcc.Graph(id='timeseries-plot'))
         ]),
     ]),
-    dcc.Store(id='selected-point-store', data={'lat': 52.52, 'lon': 13.40})  # Default to Berlin
+    dcc.Store(id='selected-point-store', data={'lat': 52.52, 'lon': 13.40}) # Default to Berlin
 ])
 
 # --- Callbacks ---
@@ -157,21 +175,24 @@ def update_variable_dropdown(cycle_value):
     return options, default_var
 
 @app.callback(
-    Output('time-slider', 'min'),
-    Output('time-slider', 'max'),
-    Output('time-slider', 'value'),
-    Output('time-slider', 'marks'),
+    Output('time-slider-container', 'children'),
     Input('cycle-dropdown', 'value'))
 def update_time_slider(cycle_value):
     ds = load_dataset(cycle_value)
     if ds is None:
-        return 0, 0, 0, {}
+        return []
 
     time_coords = pd.to_datetime(ds.time.values)
-    max_time = len(time_coords) - 1
     marks = {i: dt.strftime('%m-%d %H:%M') for i, dt in enumerate(time_coords) if i % 4 == 0}
     
-    return 0, max_time, 0, marks
+    return dcc.Slider(
+        id='time-slider',
+        min=0,
+        max=len(time_coords) - 1,
+        value=0,
+        marks=marks,
+        step=1
+    )
 
 @app.callback(
     Output('weather-map', 'figure'),
@@ -183,32 +204,61 @@ def update_map(selected_variable, cycle_value, time_index):
     if ds is None or selected_variable is None or time_index is None:
         return go.Figure()
 
-    # Ensure time_index is within bounds
-    max_time = len(ds.time) - 1
-    time_index = min(max(0, time_index), max_time)
-
     var_config = VARIABLE_CONFIG[selected_variable]
     data_slice = ds[selected_variable].isel(time=time_index)
     
     converted_data = var_config['convert'](data_slice)
-
-    fig = go.Figure(go.Contour(
-        z=converted_data.values,
-        x=ds.longitude.values,
-        y=ds.latitude.values,
-        colorscale=var_config['colorscale'],
-        colorbar_title=var_config['unit'],
-        contours=dict(coloring='fill'),
-        hoverinfo='x+y+z'
+    
+    # Get coordinate arrays
+    lon_coords = ds.longitude.values
+    lat_coords = ds.latitude.values
+    
+    # Downsample if data is too large
+    if converted_data.size > 50000:  # Threshold for high-res data
+        print(f"Large dataset detected ({converted_data.size} points). Downsampling...")
+        converted_data, lon_coords, lat_coords = downsample_data(
+            converted_data, lon_coords, lat_coords, max_points=10000
+        )
+    
+    # Create mesh and flatten
+    if len(lon_coords.shape) == 1:
+        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+    else:
+        lon_mesh, lat_mesh = lon_coords, lat_coords
+        
+    lon_flat = lon_mesh.flatten()
+    lat_flat = lat_mesh.flatten()
+    z_flat = converted_data.values.flatten()
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scattergeo(
+        lon=lon_flat,
+        lat=lat_flat,
+        mode='markers',
+        marker=dict(
+            size=6,  # Smaller markers for potentially high-res data
+            color=z_flat,
+            colorscale=var_config['colorscale'],
+            showscale=True,
+            colorbar=dict(title=var_config['unit'])
+        ),
+        hovertemplate='Lat: %{lat}<br>Lon: %{lon}<br>Value: %{marker.color}<extra></extra>'
     ))
-
+    
     fig.update_layout(
         title=f"{var_config['label']} at {pd.to_datetime(ds.time.values[time_index]).strftime('%Y-%m-%d %H:%M')} UTC",
-        xaxis_title="Longitude",
-        yaxis_title="Latitude",
         geo=dict(
             scope='europe',
             projection_type='mercator',
+            showland=True,
+            landcolor='lightgray',
+            showcountries=True,
+            countrycolor='white',
+            showcoastlines=True,
+            coastlinecolor='black',
+            showocean=True,
+            oceancolor='lightblue',
             center=dict(
                 lon=(EUROPE_BOUNDS['lon_min'] + EUROPE_BOUNDS['lon_max']) / 2,
                 lat=(EUROPE_BOUNDS['lat_min'] + EUROPE_BOUNDS['lat_max']) / 2
@@ -218,6 +268,7 @@ def update_map(selected_variable, cycle_value, time_index):
         ),
         margin={"r":0,"t":40,"l":0,"b":0}
     )
+    
     return fig
 
 @app.callback(
@@ -227,7 +278,8 @@ def update_map(selected_variable, cycle_value, time_index):
 def store_clicked_point(clickData, current_point):
     if clickData:
         point = clickData['points'][0]
-        return {'lat': point['y'], 'lon': point['x']}
+        # For go.Scattergeo, use 'lat' and 'lon' instead of 'x' and 'y'
+        return {'lat': point['lat'], 'lon': point['lon']}
     return current_point
 
 @app.callback(
@@ -270,9 +322,6 @@ def update_timeseries(selected_variable, selected_point, cycle_value, time_index
     ))
     
     # Add a vertical line for the selected time step
-    # Ensure time_index is within bounds
-    max_time = len(time_values) - 1
-    time_index = min(max(0, time_index), max_time)
     selected_time = time_values[time_index]
     fig.add_vline(x=selected_time, line_width=2, line_dash="dash", line_color="red")
     

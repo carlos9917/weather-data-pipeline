@@ -1,0 +1,322 @@
+---
+title: "Wind Gust Parameterization Methods: A Review and Implementation Analysis"
+author: "Carlos Peralta"
+date: today
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+---
+
+# Introduction
+
+Wind gust forecasting is critical for wind energy applications, aviation safety, and structural engineering. 
+Traditional parameterization methods were developed for the standard 10-meter reference height, but for example in wind energy 
+modern wind turbines operate at hub heights of 100+ meters, necessitating new approaches that account for height-dependent effects, atmospheric stability, and surface roughness variations.
+
+This documents outlines different methods to answer the technical question:
+
+```
+How would you calculate wind gusts based on the weather model output?
+Outline your approach to deriving gusts (e.g. using 10 m wind, boundary layer turbulence
+diagnostics), including any assumptions or approximations.
+```
+
+Most numerical weather models provide a post-processed wind gust estimate. The data downloaded
+in the data pipeline developed in this repository includes wind gust from a global (GFS) and 
+a high resolution regional model (MET). 
+
+The kind of parametrization used for estimating wind gust at the surface varies
+with the numerical model. They range from using a simple (empirical) multiplicative factor to more sophisticated
+formulas that consider atmospheric stability. 
+Below we review wind gust parameterization methods discussed in Suomi et al. (2013) and analyzes their implementation.
+The analysis covers three main parameterization approaches: Wieringa (1973), Woetman Nielsen and Petersen (2001), and the more recent Suomi method.
+
+A python script that implements the simplest of the approaches can also
+be found in `data_processing/calculate_wind_gust.py`.
+
+# Wind Gust Parameterization Methods Review
+
+## Power Law Method {#sec-power-law}
+
+### Theoretical Foundation
+
+The power law method represents the simplest approach to wind gust parameterization, based on the classical wind profile relationship:
+
+$$u(z) = u_{ref} \left(\frac{z}{z_{ref}}\right)^{\alpha}$$
+
+Where:
+
+- $u(z)$ = wind speed at height $z$
+
+- $u_{ref}$ = reference wind speed at reference height $z_{ref}$
+
+- $\alpha$ = power law exponent (typically 0.1-0.4)
+
+For gust calculations, the method applies the same scaling to both mean wind and gust components:
+
+$$G(z) = G_{ref} \left(\frac{z}{z_{ref}}\right)^{\alpha}$$
+
+### Power Law Exponent Determination
+
+The exponent $\alpha$ varies with:
+
+**Surface roughness:**
+- Smooth surfaces (water, ice): $\alpha \approx 0.1$
+- Open terrain (grassland): $\alpha \approx 0.15$
+- Suburban areas: $\alpha \approx 0.25$
+- Urban/forest: $\alpha \approx 0.3-0.4$
+
+**Atmospheric stability:**
+- Unstable conditions: $\alpha$ decreases (enhanced mixing)
+- Stable conditions: $\alpha$ increases (reduced mixing)
+- Neutral conditions: Standard values apply
+
+### Implementation Approach
+
+The power law gust parameterization follows these steps:
+
+1. **Reference gust calculation** at standard height (typically 10m)
+2. **Height extrapolation** using appropriate power law exponent
+3. **Roughness adjustment** based on local surface characteristics
+4. **Optional stability correction** for improved accuracy
+
+### Key Characteristics
+
+**Strengths:**
+
+- **Computational simplicity** - minimal processing requirements
+- **Widely understood** - established meteorological practice
+- **Baseline reference** - useful for method comparison
+- **Data requirements minimal** - only reference wind speed needed
+
+**Limitations:**
+
+- **Systematic underestimation** of gust wind speeds at higher elevations
+- **No stability effects** - assumes neutral atmospheric conditions
+- **Limited height range** - accuracy decreases significantly above 50-100m
+- **Oversimplified physics** - ignores turbulence generation mechanisms
+- **Site-specific bias** - requires local calibration for accuracy
+
+### Performance Characteristics
+
+Observational studies have shown that the power law method:
+
+- **Underestimates gusts** by 10-30% at wind energy heights (80-150m)
+- **Shows largest errors** in stable atmospheric conditions
+- **Performs reasonably** in neutral conditions over simple terrain
+- **Requires bias correction** for operational applications
+
+## Wieringa (1973) Method {#sec-w73}
+
+### Theoretical Foundation
+
+The W73 method represents one of the earliest systematic approaches to gust parameterization, based on the fundamental relationship:
+
+$$G_{t,T} = 1 + \frac{g_{t,T} \cdot u_* \cdot t}{u_T \cdot \ln(z/z_0)}$$
+
+Where:
+
+- $G_{t,T}$ = gust factor (ratio of gust to mean wind speed)
+
+- $g_{t,T}$ = normalized gust coefficient
+
+- $u_*$ = friction velocity
+
+- $t$ = gust duration
+
+- $u_T$ = mean wind speed over period T
+
+- $z$ = height above surface
+
+- $z_0$ = aerodynamic roughness length
+
+### Key Characteristics
+
+**Strengths:**
+
+- **Computational simplicity** - minimal processing requirements and easy implementation
+- **Well-established empirical basis** - extensively validated across multiple sites
+- **Direct roughness incorporation** - explicitly accounts for surface roughness effects
+- **Robust performance** - reliable in near-neutral conditions up to ~50m height
+- **Minimal data requirements** - only needs basic meteorological parameters
+- **Historical validation** - proven track record in operational applications
+
+**Limitations:**
+
+- **Neutral stability assumption** - ignores important atmospheric stability effects
+- **Limited height range** - accuracy decreases significantly above 50m elevation
+- **No stability dependence** - cannot capture stability-driven gust variations
+- **Single-station derivation** - limited geographical representativeness
+- **Overestimation in complex terrain** - tends to overpredict gusts over forests
+- **Low wind speed issues** - poor performance in weak wind conditions
+
+
+## Woetman Nielsen and Petersen (2001) Method {#sec-wnp01}
+
+### Theoretical Foundation
+
+The WNP01 method introduced atmospheric stability effects through the formulation:
+
+$$G_{t,T} = 1 + g_{t,T} \left[ \gamma_0 \frac{c_N u_{*0}}{u_T} + (1-\gamma_0) \frac{c_B w_*}{u_T} \right]$$
+
+Where:
+
+- $\gamma_0 = 1 - \gamma_s$ (stability parameter)
+
+- $\gamma_s = 1$ for stable, $\gamma_s = 0$ for unstable conditions
+
+- $u_{*0}$ = surface friction velocity
+
+- $w_* = (B_p h)^{1/3}$ = convective velocity scale
+
+- $c_N, c_B$ = empirical constants
+
+- $h$ = boundary layer height
+
+### Key Characteristics
+
+**Strengths:**
+
+- Explicit stability dependence
+
+- Accounts for both mechanical and thermal turbulence
+
+- Physically-based approach using similarity theory
+
+- Applicable to various atmospheric conditions
+
+**Limitations:**
+
+- Complex parameter determination
+
+- Requires boundary layer height information
+
+- Overestimates stability effects in some conditions
+
+- Limited validation at wind energy heights
+
+
+## Suomi et al. (2013) Method {#sec-suomi}
+
+### Theoretical Foundation
+
+The Suomi method represents a significant advancement in gust parameterization, combining turbulence intensity concepts with stability-dependent formulations specifically designed for wind energy heights:
+
+$$G_{t,T} = 1 + g_{t,T} \frac{\sigma_U}{u_T}$$
+
+Where the standard deviation of horizontal wind speed $\sigma_U$ is parameterized using modified Gryning et al. (1987) formulations:
+
+**For unstable conditions:**
+$$\sigma_U = u_* \sqrt{c_1^2 + c_2^2 \left(\frac{z}{h}\right)^{2/3} \left(-\frac{h}{L}\right)^{2/3}}$$
+
+**For stable conditions:**
+$$\sigma_U = u_* \sqrt{c_3^2 + c_4^2 \frac{z}{L}}$$
+
+Where:
+- $g_{t,T}$ = normalized gust factor (observationally derived)
+- $u_*$ = friction velocity
+- $h$ = boundary layer height  
+- $L$ = Obukhov length
+- $z$ = height above surface
+- $c_1, c_2, c_3, c_4$ = empirical constants
+
+### Key Characteristics
+
+**Strengths:**
+
+- **Superior performance** - outperformed W73 and WNP01 methods in validation studies
+- **Height-explicit formulation** - applicable from 30-143m, suitable for modern wind turbines
+- **Realistic stability effects** - avoids overestimation issues of WNP01 method
+- **Unified approach** - single framework for all stability conditions
+- **Observational basis** - derived from extensive mast observations in different environments
+- **Physical insight** - based on turbulence intensity concepts
+- **Flexible parameterization** - adaptable to various surface roughness conditions
+
+**Limitations:**
+
+- **Complex implementation** - requires multiple meteorological parameters (u*, h, L)
+- **Boundary layer height dependency** - sensitive to BL height accuracy in model applications
+- **Limited extreme conditions** - validation focused on moderate to strong winds (>3-5 m/s)
+- **Site-specific coefficients** - normalized gust factors may vary between locations
+- **Computational requirements** - more demanding than simpler methods like W73
+- **Parameter uncertainty** - performance depends on accurate estimation of stability parameters
+
+
+# Practical implementation
+
+All the methods describe above require site specific parameters
+
+In order to test them in different situations one would need:
+
+1. **Historical data window**: 1-2 months of measurements and weather model data
+
+2. **Parameter fitting**: Site-specific coefficient adjustment
+
+3. **Stability classification**: Separate parameters for different atmospheric conditions
+
+4. **Seasonal variation**: Accounting for annual cycles would require several months of data
+
+Additionally, since all model data has biases for different variables a simple
+bias correction approach could be included:
+
+Use a  **lead-time dependent bias correction**:
+
+$$u_{gust,corrected} = a \cdot u_{gust,forecast} + b$$
+
+Where coefficients $a$ and $b$ vary with forecast lead time.
+
+This method can be effective for systematically biased predictions.
+
+## Spatial Validation Analysis
+
+- Do a multi-Site Performance
+- Include both inland and coastal locations
+- Consider complex and flat terrains
+
+### Methodological Improvements
+
+- **Machine learning integration** for parameter optimization
+- **High-resolution model** for complex terrain
+- **Uncertainty quantification** using ensemble forecast data
+
+# Summary
+
+Different methods can be used to estimate wind gust based on model output data. All the parametrizations listed
+above require site specific parameters and some bias correction of model output.
+
+
+**Power Law Method:** Simple but systematically underestimates gusts at wind energy heights. Best suited as a baseline reference method.
+
+**Wieringa (1973):** Although very simple, performs reasonably well in near-neutral conditions up to ~50m height. However, it tends to overestimate gust factors in complex or forested terrain and lacks stability dependence.
+
+**Woetman Nielsen and Petersen (2001):** Introduces important stability effects but tends to overestimate the effects of atmospheric stability, particularly in unstable conditions over rough surfaces. Complex parameter determination limits practical application.
+
+**Suomi et al. (2013):** Demonstrates superior performance across different stability conditions and surface types. The method successfully captures height dependence, stability effects, and surface roughness impacts without the overestimation issues of WNP01. Recommended for wind energy applications despite higher computational requirements.
+
+# References
+
+Suomi, I., Vihma, T., Gryning, S. E., & Fortelius, C. (2013). Wind-gust parametrizations at heights relevant for wind energy: a study based on mast observations. *Quarterly Journal of the Royal Meteorological Society*, 139(674), 1298-1310. https://doi.org/10.1002/qj.2039
+
+Wieringa, J. (1973). Gust factors over open water and built-up country. *Boundary-Layer Meteorology*, 3(4), 424-441. https://doi.org/10.1007/BF01034986
+
+Woetmann Nielsen, N., & Petersen, C. (2001). Calculation of wind gusts in DMI-HIRLAM. *Danish Meteorological Institute Scientific Report*, 01-03.
+
+Brasseur, O. (2001). Development and application of a physical approach to estimating wind gusts. *Monthly Weather Review*, 129(1), 5-25. https://doi.org/10.1175/1520-0493(2001)129<0005:DAAOAP>2.0.CO;2
+
+Panofsky, H. A., & Dutton, J. A. (1984). *Atmospheric Turbulence: Models and Methods for Engineering Applications*. John Wiley & Sons.
+
+Stull, R. B. (1988). *An Introduction to Boundary Layer Meteorology*. Kluwer Academic Publishers.
+
+Kaimal, J. C., & Finnigan, J. J. (1994). *Atmospheric Boundary Layer Flows: Their Structure and Measurement*. Oxford University Press.
+
+Holtslag, A. A. M., & Nieuwstadt, F. T. M. (1986). Scaling the atmospheric boundary layer. *Boundary-Layer Meteorology*, 36(3), 201-209. https://doi.org/10.1007/BF00118662
+
+Gryning, S. E., Batchvarova, E., Brümmer, B., Jørgensen, H., & Larsen, S. (2007). On the extension of the wind profile over homogeneous terrain beyond the surface boundary layer. *Boundary-Layer Meteorology*, 124(2), 251-268. https://doi.org/10.1007/s10546-007-9166-9
+
+Floors, R., Peña, A., & Gryning, S. E. (2015). The effect of baroclinicity on the wind in the planetary boundary layer. *Quarterly Journal of the Royal Meteorological Society*, 141(687), 619-630. https://doi.org/10.1002/qj.2386
+
+---
