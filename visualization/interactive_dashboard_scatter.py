@@ -302,7 +302,8 @@ def update_map(selected_variable, cycle_value, time_index):
 def store_clicked_point(clickData, current_point):
     if clickData:
         point = clickData['points'][0]
-        return {'lat': point['y'], 'lon': point['x']}
+        # For go.Scattergeo, use 'lat' and 'lon' instead of 'x' and 'y'
+        return {'lat': point['lat'], 'lon': point['lon']}
     return current_point
 
 @app.callback(
