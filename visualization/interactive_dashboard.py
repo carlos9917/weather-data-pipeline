@@ -187,7 +187,8 @@ def update_map(selected_variable, cycle_value, time_index):
         y=ds.latitude.values,
         colorscale=var_config['colorscale'],
         colorbar_title=var_config['unit'],
-        contours=dict(coloring='lines'),
+        #contours=dict(coloring='lines'),
+        contours=dict(coloring='fill'),
         hoverinfo='x+y+z'
     ))
 
