@@ -64,6 +64,7 @@ weather-data-pipeline/
 
 3. Some of the markdown documents in the `doc` directory need
    to be rendered using quarto.
+
    **Install Quarto** (if not already installed)
    - Follow instructions at: https://quarto.org/docs/get-started/
    - For a loćal installation, follow: https://quarto.org/docs/download/tarball.html?version=1.7.32&idPrefix=download
@@ -129,6 +130,17 @@ After the pipeline has run successfully, you can view the output in two ways:
     ./scr/run_pipeline.sh dashboard
     ```
     Then, open your web browser and navigate to the URL shown in the terminal (usually `http://127.0.0.1:8050`).
+
+3. **Different dashboard options**
+   The default option of the interactive dashboard displays contours for all variables.
+   This can make it difficult to determine where in the map we are looking at. 
+   An extra scatter-based version of the display is also incuded.
+
+   To run specific versions of the dashboard use
+    ```bash
+    python ./visualization/run_dashboard.py # for the standard version
+    python ./visualization/run_dashboard.py --dashboard_type "scatter" # for a scatter-point based display.
+    ```
 
 ## 🔧 Configuration
 
