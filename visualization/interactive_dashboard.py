@@ -120,13 +120,23 @@ app.layout = html.Div([
     html.Div(className='row', children=[
         html.Div(className='seven columns', children=[
             dcc.Loading(dcc.Graph(id='weather-map')),
-            html.Div(id='time-slider-container', style={'marginTop': 20})
+            html.Div([
+                html.Label("Select Time:"),
+                dcc.Slider(
+                    id='time-slider',
+                    min=0,
+                    max=10,  # Will be updated dynamically
+                    value=0,
+                    marks={},
+                    step=1
+                )
+            ], id='time-slider-container', style={'marginTop': 20})
         ]),
         html.Div(className='five columns', children=[
             dcc.Loading(dcc.Graph(id='timeseries-plot'))
         ]),
     ]),
-    dcc.Store(id='selected-point-store', data={'lat': 52.52, 'lon': 13.40}) # Default to Berlin
+    dcc.Store(id='selected-point-store', data={'lat': 52.52, 'lon': 13.40})  # Default to Berlin
 ])
 
 # --- Callbacks ---
@@ -147,24 +157,21 @@ def update_variable_dropdown(cycle_value):
     return options, default_var
 
 @app.callback(
-    Output('time-slider-container', 'children'),
+    Output('time-slider', 'min'),
+    Output('time-slider', 'max'),
+    Output('time-slider', 'value'),
+    Output('time-slider', 'marks'),
     Input('cycle-dropdown', 'value'))
 def update_time_slider(cycle_value):
     ds = load_dataset(cycle_value)
     if ds is None:
-        return []
+        return 0, 0, 0, {}
 
     time_coords = pd.to_datetime(ds.time.values)
+    max_time = len(time_coords) - 1
     marks = {i: dt.strftime('%m-%d %H:%M') for i, dt in enumerate(time_coords) if i % 4 == 0}
     
-    return dcc.Slider(
-        id='time-slider',
-        min=0,
-        max=len(time_coords) - 1,
-        value=0,
-        marks=marks,
-        step=1
-    )
+    return 0, max_time, 0, marks
 
 @app.callback(
     Output('weather-map', 'figure'),
@@ -175,6 +182,10 @@ def update_map(selected_variable, cycle_value, time_index):
     ds = load_dataset(cycle_value)
     if ds is None or selected_variable is None or time_index is None:
         return go.Figure()
+
+    # Ensure time_index is within bounds
+    max_time = len(ds.time) - 1
+    time_index = min(max(0, time_index), max_time)
 
     var_config = VARIABLE_CONFIG[selected_variable]
     data_slice = ds[selected_variable].isel(time=time_index)
@@ -187,7 +198,6 @@ def update_map(selected_variable, cycle_value, time_index):
         y=ds.latitude.values,
         colorscale=var_config['colorscale'],
         colorbar_title=var_config['unit'],
-        #contours=dict(coloring='lines'),
         contours=dict(coloring='fill'),
         hoverinfo='x+y+z'
     ))
@@ -260,6 +270,9 @@ def update_timeseries(selected_variable, selected_point, cycle_value, time_index
     ))
     
     # Add a vertical line for the selected time step
+    # Ensure time_index is within bounds
+    max_time = len(time_values) - 1
+    time_index = min(max(0, time_index), max_time)
     selected_time = time_values[time_index]
     fig.add_vline(x=selected_time, line_width=2, line_dash="dash", line_color="red")
     
