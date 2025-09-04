@@ -1,0 +1,59 @@
+---
+title: "Weather Data Pipeline"
+author: "Gemini"
+format: revealjs
+---
+
+## Data Sources
+
+- **Global Model: GFS (Global Forecast System)**
+    - Chosen for its global coverage, free availability, and frequent updates (every 6 hours).
+    - Provides a large-scale context for weather patterns.
+- **Regional Model: MET (Finnish Meteorological Institute)**
+    - Covers Northern Europe, including Scandinavia and Latvia, providing high-resolution local detail.
+    - Offers more accurate forecasts for the region of interest.
+
+## Pipeline Architecture
+
+The pipeline is designed as a modular, automated system:
+
+1.  **Orchestration**:
+    - A shell script (`scr/run_pipeline.sh`) serves as the main entry point.
+    - It can run in `scheduler`, `dashboard`, `manual`, or `default` modes.
+    - The scheduler mode runs the pipeline every 6 hours, fetching the latest data.
+    - `orchestration/pipeline_scheduler.py` is the core script that coordinates the pipeline's execution.
+
+2.  **Data Ingestion**:
+    - `data_ingestion/gfs_downloader.py` and `data_ingestion/met_downloader.py` handle the download of GFS and MET data, respectively.
+
+3.  **Data Processing**:
+    - `data_processing/process_data.py` and `data_processing/process_met_data.py` process the raw data into a usable format (likely xarray or similar).
+    - `data_processing/calculate_wind_gust.py` implements the wind gust calculation.
+
+4.  **Visualization**:
+    - `visualization/create_visualizations.py` and `visualization/create_met_visualizations.py` generate static visualizations.
+    - `visualization/run_dashboard.py` launches an interactive dashboard built with Python Dash.
+
+## Visual Outputs
+
+- **Static Maps**:
+    - Time-stepped maps are generated for key parameters (precipitation, cloud cover, wind).
+    - These provide a clear, at-a-glance view of the weather forecast.
+- **Interactive Dashboard**:
+    - A Python Dash application (`dashboard.py`) allows for interactive exploration of the data.
+    - Users can likely select different parameters, time steps, and regions to visualize.
+
+## Reasoning and Trade-offs
+
+- **Choice of GFS**:
+    - **Reasoning**: Global coverage, no cost, and frequent updates make it ideal for a prototype.
+    - **Trade-off**: Lower resolution compared to paid models like ECMWF.
+- **Choice of MET**:
+    - **Reasoning**: Provides high-resolution data for the specific region of interest (Northern Europe).
+    - **Trade-off**: Limited geographical coverage.
+- **Pipeline Automation**:
+    - **Reasoning**: The scheduler ensures that the data is always up-to-date without manual intervention.
+    - **Trade-off**: Requires a persistent process to be running.
+- **Interactive Dashboard**:
+    - **Reasoning**: Provides a much richer user experience and allows for deeper exploration of the data.
+    - **Trade-off**: More complex to develop and maintain than static visualizations.
