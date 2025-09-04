@@ -2,7 +2,7 @@
 
 This project implements an end-to-end pipeline that downloads, processes, and visualizes operational weather forecasts from both global (GFS) and regional (MET Nordic) models. It is designed to be automated, providing actionable, time-stepped map visualizations for decision support in various industries.
 
-![Dashboard Snapshot](snapshot_dashboard.png)
+![Dashboard Snapshot](doc/figs/snapshot_dashboard.png)
 
 ## 📋 Features
 

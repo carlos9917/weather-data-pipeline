@@ -54,6 +54,8 @@ The pipeline is designed as a modular, automated system:
     - Users can likely select different parameters, time steps, and regions to visualize.
 
 Example static maps
+![Temperature map snapshot](figs/temperature_20250906_0600.png)
+![Wind map snapshot](figs/wind_speed_10m_20250903_0600.png)
 
 
 
