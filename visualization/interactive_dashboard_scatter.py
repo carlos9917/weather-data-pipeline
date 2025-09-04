@@ -78,6 +78,34 @@ def load_dataset(cycle_value):
         print(f"Error loading Zarr store {zarr_path}: {e}")
         return None
 
+def downsample_data(data_array, lon_coords, lat_coords, max_points=10000):
+    """
+    Downsample data array and coordinates to reduce memory usage while preserving spatial patterns.
+    """
+    total_points = data_array.size
+    if total_points <= max_points:
+        return data_array, lon_coords, lat_coords
+    
+    # Calculate decimation factor
+    decimation_factor = max(1, int(np.sqrt(total_points / max_points)))
+    print(f"Downsampling by factor of {decimation_factor} (from {total_points} to ~{total_points//(decimation_factor**2)} points)")
+    
+    # Downsample data and coordinates
+    if len(data_array.shape) == 2:
+        downsampled_data = data_array[::decimation_factor, ::decimation_factor]
+        if len(lon_coords.shape) == 1:
+            downsampled_lon = lon_coords[::decimation_factor]
+            downsampled_lat = lat_coords[::decimation_factor]
+        else:
+            downsampled_lon = lon_coords[::decimation_factor, ::decimation_factor]
+            downsampled_lat = lat_coords[::decimation_factor, ::decimation_factor]
+    else:
+        downsampled_data = data_array[::decimation_factor]
+        downsampled_lon = lon_coords[::decimation_factor]
+        downsampled_lat = lat_coords[::decimation_factor]
+    
+    return downsampled_data, downsampled_lon, downsampled_lat
+
 VARIABLE_CONFIG = {
     'temperature': {'label': 'Temperature (2m)', 'unit': '°C', 'colorscale': 'RdYlBu_r', 'convert': lambda x: x - 273.15},
     'air_temperature_2m': {'label': 'Temperature (2m)', 'unit': '°C', 'colorscale': 'RdYlBu_r', 'convert': lambda x: x - 273.15},
@@ -180,20 +208,24 @@ def update_map(selected_variable, cycle_value, time_index):
     data_slice = ds[selected_variable].isel(time=time_index)
     
     converted_data = var_config['convert'](data_slice)
-
-    #fig = go.Figure(go.Contour(
-    #    z=converted_data.values,
-    #    x=ds.longitude.values,
-    #    y=ds.latitude.values,
-    #    colorscale=var_config['colorscale'],
-    #    colorbar_title=var_config['unit'],
-    #    contours=dict(coloring='lines'),
-    #    #contours=dict(coloring='fill'),
-    #    hoverinfo='x+y+z'
-    #))
-    # new approach
-    # Create a mesh of points for the geographic plot
-    lon_mesh, lat_mesh = np.meshgrid(ds.longitude.values, ds.latitude.values)
+    
+    # Get coordinate arrays
+    lon_coords = ds.longitude.values
+    lat_coords = ds.latitude.values
+    
+    # Downsample if data is too large
+    if converted_data.size > 50000:  # Threshold for high-res data
+        print(f"Large dataset detected ({converted_data.size} points). Downsampling...")
+        converted_data, lon_coords, lat_coords = downsample_data(
+            converted_data, lon_coords, lat_coords, max_points=10000
+        )
+    
+    # Create mesh and flatten
+    if len(lon_coords.shape) == 1:
+        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+    else:
+        lon_mesh, lat_mesh = lon_coords, lat_coords
+        
     lon_flat = lon_mesh.flatten()
     lat_flat = lat_mesh.flatten()
     z_flat = converted_data.values.flatten()
@@ -205,7 +237,7 @@ def update_map(selected_variable, cycle_value, time_index):
         lat=lat_flat,
         mode='markers',
         marker=dict(
-            size=8,
+            size=6,  # Smaller markers for potentially high-res data
             color=z_flat,
             colorscale=var_config['colorscale'],
             showscale=True,
@@ -236,63 +268,7 @@ def update_map(selected_variable, cycle_value, time_index):
         ),
         margin={"r":0,"t":40,"l":0,"b":0}
     )
-
-    #end new arppaci
-    #not doing anything with Contour
-    #fig.update_layout(
-    #    title=f"{var_config['label']} at {pd.to_datetime(ds.time.values[time_index]).strftime('%Y-%m-%d %H:%M')} UTC",
-    #    geo=dict(
-    #        scope='europe',
-    #        projection_type='mercator',
-    #        showland=True,
-    #        landcolor='lightgray',
-    #        showcountries=True,
-    #        countrycolor='white',
-    #        showcoastlines=True,
-    #        coastlinecolor='black',
-    #        showocean=True,
-    #        oceancolor='lightblue',
-    #        center=dict(
-    #            lon=(EUROPE_BOUNDS['lon_min'] + EUROPE_BOUNDS['lon_max']) / 2,
-    #            lat=(EUROPE_BOUNDS['lat_min'] + EUROPE_BOUNDS['lat_max']) / 2
-    #        ),
-    #        lataxis_range=[EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']],
-    #        lonaxis_range=[EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max']]
-    #    ),
-    #    margin={"r":0,"t":40,"l":0,"b":0}
-    #)
-
-    # original with contours
-    # Add geographic features
-    #fig = go.Figure(go.Contour(
-    #    z=converted_data.values,
-    #    x=ds.longitude.values, 
-    #    y=ds.latitude.values,
-    #    colorscale=var_config['colorscale'],
-    #    colorbar_title=var_config['unit'],
-    #    contours=dict(coloring='fill'),
-    #    hoverinfo='x+y+z'
-    #))
-
-    # Use your original layout but add geographic features
-
-
-    #fig.update_layout(
-    #    title=f"{var_config['label']} at {pd.to_datetime(ds.time.values[time_index]).strftime('%Y-%m-%d %H:%M')} UTC",
-    #    xaxis_title="Longitude",
-    #    yaxis_title="Latitude",
-    #    geo=dict(
-    #        scope='europe',
-    #        projection_type='mercator',
-    #        center=dict(
-    #            lon=(EUROPE_BOUNDS['lon_min'] + EUROPE_BOUNDS['lon_max']) / 2,
-    #            lat=(EUROPE_BOUNDS['lat_min'] + EUROPE_BOUNDS['lat_max']) / 2
-    #        ),
-    #        lataxis_range=[EUROPE_BOUNDS['lat_min'], EUROPE_BOUNDS['lat_max']],
-    #        lonaxis_range=[EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max']]
-    #    ),
-    #    margin={"r":0,"t":40,"l":0,"b":0}
-    #)
+    
     return fig
 
 @app.callback(
