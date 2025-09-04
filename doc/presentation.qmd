@@ -1,15 +1,25 @@
 ---
 title: "Weather Data Pipeline"
-author: "Gemini"
+author: "Carlos Peralta"
 format: revealjs
 ---
+
+## Introduction
+
+This project is a classic example of an ETL (Extract, Transform, Load) pipeline:
+
+   * Extract: The data_ingestion scripts connect to external data sources (weather data from meteorological data centers) and download the raw weather forecast data (GRIB or NetCDF files).
+   * Transform: The data_processing scripts take the raw data, clean it, select the necessary parameters, calculate new variables (like wind gusts), and convert it into an optimized format (Zarr or duckdb).
+   * Load: The final, processed data is loaded into a storage system (storage/processed_data/) where it can be efficiently accessed by the visualization scripts to generate maps and power the
+     interactive dashboard.
+
 
 ## Data Sources
 
 - **Global Model: GFS (Global Forecast System)**
     - Chosen for its global coverage, free availability, and frequent updates (every 6 hours).
     - Provides a large-scale context for weather patterns.
-- **Regional Model: MET (Finnish Meteorological Institute)**
+- **Regional Model: MET (Norwegian Meteorological Institute)**
     - Covers Northern Europe, including Scandinavia and Latvia, providing high-resolution local detail.
     - Offers more accurate forecasts for the region of interest.
 
@@ -47,7 +57,7 @@ The pipeline is designed as a modular, automated system:
 
 - **Choice of GFS**:
     - **Reasoning**: Global coverage, no cost, and frequent updates make it ideal for a prototype.
-    - **Trade-off**: Lower resolution compared to paid models like ECMWF.
+    - **Trade-off**: Lower resolution compared to other models like ECMWF.
 - **Choice of MET**:
     - **Reasoning**: Provides high-resolution data for the specific region of interest (Northern Europe).
     - **Trade-off**: Limited geographical coverage.
@@ -57,3 +67,9 @@ The pipeline is designed as a modular, automated system:
 - **Interactive Dashboard**:
     - **Reasoning**: Provides a much richer user experience and allows for deeper exploration of the data.
     - **Trade-off**: More complex to develop and maintain than static visualizations.
+
+## Possible extensions
+
+- **Include IFS**
+
+- **Include a validation pipeline**

@@ -62,6 +62,16 @@ weather-data-pipeline/
     uv pip install -r requirements.txt
     ```
 
+3. Some of the markdown documents in the `doc` directory need
+   to be rendered using quarto.
+   **Install Quarto** (if not already installed)
+   - Follow instructions at: https://quarto.org/docs/get-started/
+   - For a loćal installation, follow: https://quarto.org/docs/download/tarball.html?version=1.7.32&idPrefix=download
+   Then render the `.qmd` documents using
+   `quarto render file.qmd` (for html output) 
+   `quarto render file.qmd --to pdf` (for pdf output)
+
+
 ## ⚙️ Usage
 
 The entire pipeline is controlled by the `scr/run_pipeline.sh` script, which offers several modes of operation.
