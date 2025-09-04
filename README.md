@@ -86,6 +86,25 @@ You can run the pipeline to download and process the latest available weather da
     ./scr/run_pipeline.sh scheduler
     ```
 
+### Automating with Crontab
+
+For a more robust automation setup, you can use `cron` to schedule the pipeline. This avoids having a process running continuously in a terminal.
+
+1.  Open your crontab file for editing:
+    ```bash
+    crontab -e
+    ```
+
+2.  Add the following lines, making sure to replace `/path/to/your/project` with the absolute path to the `weather-data-pipeline` directory:
+    ```cron
+    # Run the weather pipeline every 6 hours, one hour after new GFS data is expected (times in UTC)
+    0 1 * * * cd /path/to/your/project && ./scr/run_pipeline.sh default >> /path/to/your/project/logs/cron.log 2>&1
+    0 7 * * * cd /path/to/your/project && ./scr/run_pipeline.sh default >> /path/to/your/project/logs/cron.log 2>&1
+    0 13 * * * cd /path/to/your/project && ./scr/run_pipeline.sh default >> /path/to/your/project/logs/cron.log 2>&1
+    0 19 * * * cd /path/to/your/project && ./scr/run_pipeline.sh default >> /path/to/your/project/logs/cron.log 2>&1
+    ```
+    This will run the pipeline in `default` mode at 01:00, 07:00, 13:00, and 19:00 UTC, capturing each of the four daily GFS cycles. Log output will be appended to `logs/cron.log`.
+
 ### Viewing the Results
 
 After the pipeline has run successfully, you can view the output in two ways:
