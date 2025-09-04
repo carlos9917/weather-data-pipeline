@@ -50,11 +50,14 @@ The pipeline is designed as a modular, automated system:
     - Time-stepped maps are generated for key parameters (precipitation, cloud cover, wind).
     - These provide a clear, at-a-glance view of the weather forecast.
 - **Interactive Dashboard**:
-    - A Python Dash application (`dashboard.py`) allows for interactive exploration of the data.
+    - A Python Dash application (`interactive_dashboard.py`) allows for interactive exploration of the data.
     - Users can likely select different parameters, time steps, and regions to visualize.
 
-Example static maps
+## Example static maps: Temperature
+
 ![Temperature map snapshot](figs/temperature_20250906_0600.png)
+
+## Example static maps: Wind 
 ![Wind map snapshot](figs/wind_speed_10m_20250903_0600.png)
 
 
