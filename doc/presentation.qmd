@@ -53,6 +53,10 @@ The pipeline is designed as a modular, automated system:
     - A Python Dash application (`dashboard.py`) allows for interactive exploration of the data.
     - Users can likely select different parameters, time steps, and regions to visualize.
 
+Example static maps
+
+
+
 ## Reasoning and Trade-offs
 
 - **Choice of GFS**:

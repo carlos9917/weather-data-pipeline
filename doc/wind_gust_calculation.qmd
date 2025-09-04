@@ -30,9 +30,13 @@ in the data pipeline developed in this repository includes wind gust from a glob
 a high resolution regional model (MET). 
 
 The kind of parametrization used for estimating wind gust at the surface varies
-with the numerical model. Below we review wind gust parameterization methods discussed in Suomi et al. (2013) and analyzes their implementation.
+with the numerical model. They range from using a simple (empirical) multiplicative factor to more sophisticated
+formulas that consider atmospheric stability. 
+Below we review wind gust parameterization methods discussed in Suomi et al. (2013) and analyzes their implementation.
 The analysis covers three main parameterization approaches: Wieringa (1973), Woetman Nielsen and Petersen (2001), and the more recent Suomi method.
 
+A python script that implements the simplest of the approaches can also
+be found in `data_processing/calculate_wind_gust.py`.
 
 # Wind Gust Parameterization Methods Review
 
