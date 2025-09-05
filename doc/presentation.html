@@ -142,9 +142,25 @@ Carlos Peralta
 <h2>Introduction</h2>
 <p>This project is a classic example of an ETL (Extract, Transform, Load) pipeline:</p>
 <ul>
-<li>Extract: The data_ingestion scripts connect to external data sources (weather data from meteorological data centers) and download the raw weather forecast data (GRIB or NetCDF files).</li>
-<li>Transform: The data_processing scripts take the raw data, clean it, select the necessary parameters, calculate new variables (like wind gusts), and convert it into an optimized format (Zarr or duckdb).</li>
-<li>Load: The final, processed data is loaded into a storage system (storage/processed_data/) where it can be efficiently accessed by the visualization scripts to generate maps and power the interactive dashboard.</li>
+<li>Extract: The data_ingestion scripts connect to external weather data sources and download the raw weather forecast data (GRIB or NetCDF files).</li>
+<li>Transform: The data_processing scripts take the raw data, select the necessary parameters, calculate new variables, and convert it into an optimized format (zarr or duckdb).</li>
+<li>Load: The final, processed data is loaded into a storage system (data/processed_data/) where it can be accessed by the visualization scripts to generate maps.</li>
+</ul>
+</section>
+<section id="parameter-selection-for-operational-and-gnss-applications" class="slide level2">
+<h2>Parameter Selection for Operational and GNSS Applications</h2>
+<p>For this prototype, we’ve focused on three key atmospheric variables:</p>
+<ul>
+<li><p>Precipitation: Essential for agriculture, flood forecasting, and general public safety.</p></li>
+<li><p>Cloud Cover: Critical for the solar energy sector, aviation, and temperature forecasting.</p></li>
+<li><p>Wind: A key parameter for aviation, shipping, wind power generation, and structural engineering.</p></li>
+</ul>
+</section>
+<section id="gnss-applications-overview" class="slide level2">
+<h2>GNSS Applications Overview</h2>
+<ul>
+<li><p>Tropospheric Delay Correction: The troposphere delays GNSS signals, introducing errors in positioning. Weather models provide the necessary data (temperature, pressure, and humidity) to accurately model this delay and correct for it.</p></li>
+<li><p>Precipitable Water Vapor (PWV): The tropospheric delay is closely related to the amount of water vapor in the atmosphere (PWV). Near real-time PWV estimates, are valuable for both GNSS correction and severe weather forecasting.</p></li>
 </ul>
 </section>
 <section id="data-sources" class="slide level2">
@@ -179,8 +195,8 @@ Carlos Peralta
 </ul></li>
 <li><strong>Data Processing</strong>:
 <ul>
-<li><code>data_processing/process_data.py</code> and <code>data_processing/process_met_data.py</code> process the raw data into a usable format (likely xarray or similar).</li>
-<li><code>data_processing/calculate_wind_gust.py</code> implements the wind gust calculation.</li>
+<li><code>data_processing/process_data.py</code> and <code>data_processing/process_met_data.py</code> process the raw data into a usable format (zarr or duckdb).</li>
+<li><code>data_processing/calculate_wind_gust.py</code> implements a simplified wind gust calculation.</li>
 </ul></li>
 <li><strong>Visualization</strong>:
 <ul>
@@ -189,14 +205,19 @@ Carlos Peralta
 </ul></li>
 </ol>
 </section>
-<section id="visual-outputs" class="slide level2">
-<h2>Visual Outputs</h2>
+<section id="static-visual-outputs" class="slide level2">
+<h2>Static Visual Outputs</h2>
 <ul>
 <li><strong>Static Maps</strong>:
 <ul>
 <li>Time-stepped maps are generated for key parameters (precipitation, cloud cover, wind).</li>
 <li>These provide a clear, at-a-glance view of the weather forecast.</li>
 </ul></li>
+</ul>
+</section>
+<section id="interactive-visual-outputs" class="slide level2">
+<h2>Interactive Visual Outputs</h2>
+<ul>
 <li><strong>Interactive Dashboard</strong>:
 <ul>
 <li>A Python Dash application (<code>interactive_dashboard.py</code>) allows for interactive exploration of the data.</li>
@@ -212,8 +233,8 @@ Carlos Peralta
 <h2>Example static maps: Wind</h2>
 
 <img data-src="figs/wind_speed_10m_20250903_0600.png" class="r-stretch quarto-figure-center"><p class="caption">Wind map snapshot</p></section>
-<section id="reasoning-and-trade-offs" class="slide level2">
-<h2>Reasoning and Trade-offs</h2>
+<section id="reasoning-and-trade-offs-for-data" class="slide level2">
+<h2>Reasoning and Trade-offs for Data</h2>
 <ul>
 <li><strong>Choice of GFS</strong>:
 <ul>
@@ -225,6 +246,11 @@ Carlos Peralta
 <li><strong>Reasoning</strong>: Provides high-resolution data for the specific region of interest (Northern Europe).</li>
 <li><strong>Trade-off</strong>: Limited geographical coverage.</li>
 </ul></li>
+</ul>
+</section>
+<section id="reasoning-and-trade-offs-for-pipeline" class="slide level2">
+<h2>Reasoning and Trade-offs for Pipeline</h2>
+<ul>
 <li><strong>Pipeline Automation</strong>:
 <ul>
 <li><strong>Reasoning</strong>: The scheduler ensures that the data is always up-to-date without manual intervention.</li>
@@ -237,12 +263,42 @@ Carlos Peralta
 </ul></li>
 </ul>
 </section>
-<section id="possible-extensions" class="slide level2">
-<h2>Possible extensions</h2>
+<section id="operationalizing-the-pipeline-1" class="slide level2">
+<h2>Operationalizing the Pipeline 1</h2>
+<p>To move this pipeline from a manual process to a reliable, automated service, we can implement modern DevOps practices.</p>
 <ul>
-<li><p><strong>Include IFS</strong></p></li>
-<li><p><strong>Include a validation pipeline</strong></p></li>
+<li><strong>Containerization with Docker</strong>:
+<ul>
+<li>A <code>Dockerfile</code> can be created to package the entire application—including all dependencies, scripts, and configurations—into a portable container image.</li>
+<li><strong>Benefits</strong>: Ensures the pipeline runs consistently across any environment (development, testing, production) and simplifies deployment.</li>
+</ul></li>
 </ul>
+</section>
+<section id="operationalizing-the-pipeline-2" class="slide level2">
+<h2>Operationalizing the Pipeline 2</h2>
+<ul>
+<li><strong>CI/CD with GitHub Actions</strong>:
+<ul>
+<li><strong>Continuous Integration (CI)</strong>: An automated workflow can be set up to run tests (<code>pytest</code>) on every push or pull request. This catches bugs early and maintains code quality.</li>
+<li><strong>Continuous Deployment (CD)</strong>: On a successful merge to the main branch, a GitHub Action can automatically:
+<ol type="1">
+<li>Build the Docker image and push to a container registry (e.g., Docker Hub, GitHub Container Registry).</li>
+<li>Deploy the new image to a cloud service for execution.</li>
+</ol></li>
+</ul></li>
+</ul>
+</section>
+<section id="possible-extensions-for-data-sources" class="slide level2">
+<h2>Possible extensions for data sources</h2>
+<ul>
+<li><p><strong>Include IFS</strong>: The ECMFWF model is widely regarded as the most reliable for the medium range scale.</p></li>
+<li><p><strong>Include a validation pipeline</strong>: Currently the scripts only download data and plot them, but in order to validate the simulations one would need to also include a proper model verification.</p></li>
+<li><p><strong>Include ensemble data</strong>: all current operational models provide an ensemble. In this case we are only downloading the deterministic version of GFS, and a post-processed version of the MET Norway model.</p></li>
+<li><p><strong>Download observational data</strong>: needed to do the validation of the simulations.</p></li>
+</ul>
+</section>
+<section id="live-demonstration" class="title-slide slide level1 center">
+<h1>Live Demonstration</h1>
 
 </section>
     </div>
@@ -301,7 +357,7 @@ Carlos Peralta
         progress: true,
 
         // Display the page number of the current slide
-        slideNumber: false,
+        slideNumber: 'c/t',
 
         // 'all', 'print', or 'speaker'
         showSlideNumber: 'all',

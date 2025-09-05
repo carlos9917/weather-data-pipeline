@@ -1,17 +1,18 @@
 ---
 title: "Weather Data Pipeline"
 author: "Carlos Peralta"
-format: revealjs
+format: 
+  revealjs:
+    slide-number: true
 ---
 
 ## Introduction
 
 This project is a classic example of an ETL (Extract, Transform, Load) pipeline:
 
-   * Extract: The data_ingestion scripts connect to external data sources (weather data from meteorological data centers) and download the raw weather forecast data (GRIB or NetCDF files).
-   * Transform: The data_processing scripts take the raw data, clean it, select the necessary parameters, calculate new variables (like wind gusts), and convert it into an optimized format (Zarr or duckdb).
-   * Load: The final, processed data is loaded into a storage system (data/processed_data/) where it can be efficiently accessed by the visualization scripts to generate maps and power the
-     interactive dashboard.
+   * Extract: The data_ingestion scripts connect to external weather data sources and download the raw weather forecast data (GRIB or NetCDF files).
+   * Transform: The data_processing scripts take the raw data, select the necessary parameters, calculate new variables, and convert it into an optimized format (zarr or duckdb).
+   * Load: The final, processed data is loaded into a storage system (data/processed_data/) where it can be accessed by the visualization scripts to generate maps.
 
 ## Parameter Selection for Operational and GNSS Applications
 
@@ -23,21 +24,14 @@ This project is a classic example of an ETL (Extract, Transform, Load) pipeline:
 
    * Wind: A key parameter for aviation, shipping, wind power generation, and structural engineering.
 
-  Usability for GNSS Applications
 
-  This data pipeline is relevant for GNSS (Global Navigation Satellite System) applications, particularly for
-  improving positioning accuracy by correcting for tropospheric delay.
+##  GNSS Applications Overview
 
    * Tropospheric Delay Correction: The troposphere delays GNSS signals, introducing errors in positioning. Weather models
-     provide the necessary data (temperature, pressure, and humidity) to accurately model this delay and correct for it. Our
-     pipeline can be easily extended to process these variables.
+     provide the necessary data (temperature, pressure, and humidity) to accurately model this delay and correct for it. 
 
    * Precipitable Water Vapor (PWV): The tropospheric delay is closely related to the amount of water vapor in the atmosphere
-     (PWV). By processing data from the high-resolution MET model, our pipeline can provide accurate, near real-time PWV
-     estimates, which are valuable for both GNSS correction and severe weather forecasting.
-
-   * Actionable Visualizations: The visualization component of our pipeline could be extended to generate maps of
-     tropospheric delay or PWV, providing a valuable decision-support tool for GNSS users and meteorologists.
+     (PWV). Near real-time PWV estimates, are valuable for both GNSS correction and severe weather forecasting.
 
 
 ## Data Sources
@@ -70,11 +64,14 @@ The pipeline is designed as a modular, automated system:
     - `visualization/create_visualizations.py` and `visualization/create_met_visualizations.py` generate static visualizations.
     - `visualization/run_dashboard.py` launches an interactive dashboard built with Python Dash.
 
-## Visual Outputs
+## Static Visual Outputs
 
 - **Static Maps**:
     - Time-stepped maps are generated for key parameters (precipitation, cloud cover, wind).
     - These provide a clear, at-a-glance view of the weather forecast.
+
+## Interactive Visual Outputs
+
 - **Interactive Dashboard**:
     - A Python Dash application (`interactive_dashboard.py`) allows for interactive exploration of the data.
     - Users can likely select different parameters, time steps, and regions to visualize.
@@ -88,7 +85,7 @@ The pipeline is designed as a modular, automated system:
 
 
 
-## Reasoning and Trade-offs
+## Reasoning and Trade-offs for Data
 
 - **Choice of GFS**:
     - **Reasoning**: Global coverage, no cost, and frequent updates make it ideal for a prototype.
@@ -96,6 +93,9 @@ The pipeline is designed as a modular, automated system:
 - **Choice of MET**:
     - **Reasoning**: Provides high-resolution data for the specific region of interest (Northern Europe).
     - **Trade-off**: Limited geographical coverage.
+
+## Reasoning and Trade-offs for Pipeline
+
 - **Pipeline Automation**:
     - **Reasoning**: The scheduler ensures that the data is always up-to-date without manual intervention.
     - **Trade-off**: Requires a persistent process to be running.
@@ -103,7 +103,7 @@ The pipeline is designed as a modular, automated system:
     - **Reasoning**: Provides a much richer user experience and allows for deeper exploration of the data.
     - **Trade-off**: More complex to develop and maintain than static visualizations.
 
-## Operationalizing the Pipeline
+## Operationalizing the Pipeline 1
 
 To move this pipeline from a manual process to a reliable, automated service, we can implement modern DevOps practices.
 
@@ -111,17 +111,13 @@ To move this pipeline from a manual process to a reliable, automated service, we
     - A `Dockerfile` can be created to package the entire application—including all dependencies, scripts, and configurations—into a portable container image.
     - **Benefits**: Ensures the pipeline runs consistently across any environment (development, testing, production) and simplifies deployment.
 
+## Operationalizing the Pipeline 2
+
 - **CI/CD with GitHub Actions**:
     - **Continuous Integration (CI)**: An automated workflow can be set up to run tests (`pytest`) on every push or pull request. This catches bugs early and maintains code quality.
     - **Continuous Deployment (CD)**: On a successful merge to the main branch, a GitHub Action can automatically:
-        1.  Build the Docker image.
-        2.  Push the image to a container registry (e.g., Docker Hub, GitHub Container Registry).
-        3.  Deploy the new image to a cloud service for execution.
-
-- **Cloud Deployment**:
-    - The container can be run on cloud services like **AWS ECS**, **Google Cloud Run**, or a **Kubernetes** cluster.
-    - These services can manage scheduled runs (e.g., running the `scheduler` mode every 6 hours) and host the web dashboard, ensuring high availability and scalability.
-
+        1.  Build the Docker image and push to a container registry (e.g., Docker Hub, GitHub Container Registry).
+        2.  Deploy the new image to a cloud service for execution.
 
 ## Possible extensions for data sources
 
@@ -135,3 +131,4 @@ To move this pipeline from a manual process to a reliable, automated service, we
 
 - **Download observational data**: needed to do the validation of the simulations.
 
+# Live Demonstration {.center}
