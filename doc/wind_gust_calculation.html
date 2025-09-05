@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Carlos Peralta">
-<meta name="dcterms.date" content="2025-09-04">
+<meta name="dcterms.date" content="2025-09-05">
 
 <title>Wind Gust Parameterization Methods: A Review and Implementation Analysis</title>
 <style>
@@ -112,7 +112,8 @@ window.Quarto = {
   </ul></li>
   </ul></li>
   <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary"><span class="header-section-number">4</span> Summary</a></li>
-  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">5</span> References</a></li>
+  <li><a href="#python-implementation" id="toc-python-implementation" class="nav-link" data-scroll-target="#python-implementation"><span class="header-section-number">5</span> Python implementation</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">6</span> References</a></li>
   </ul>
 </nav>
 </div>
@@ -137,7 +138,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 4, 2025</p>
+      <p class="date">September 5, 2025</p>
     </div>
   </div>
   
@@ -180,8 +181,19 @@ diagnostics), including any assumptions or approximations.</code></pre>
 <section id="power-law-exponent-determination" class="level3" data-number="2.1.2">
 <h3 data-number="2.1.2" class="anchored" data-anchor-id="power-law-exponent-determination"><span class="header-section-number">2.1.2</span> Power Law Exponent Determination</h3>
 <p>The exponent <span class="math inline">\(\alpha\)</span> varies with:</p>
-<p><strong>Surface roughness:</strong> - Smooth surfaces (water, ice): <span class="math inline">\(\alpha \approx 0.1\)</span> - Open terrain (grassland): <span class="math inline">\(\alpha \approx 0.15\)</span> - Suburban areas: <span class="math inline">\(\alpha \approx 0.25\)</span> - Urban/forest: <span class="math inline">\(\alpha \approx 0.3-0.4\)</span></p>
-<p><strong>Atmospheric stability:</strong> - Unstable conditions: <span class="math inline">\(\alpha\)</span> decreases (enhanced mixing) - Stable conditions: <span class="math inline">\(\alpha\)</span> increases (reduced mixing) - Neutral conditions: Standard values apply</p>
+<p><strong>Surface roughness:</strong></p>
+<ul>
+<li><p>Smooth surfaces (water, ice): <span class="math inline">\(\alpha \approx 0.1\)</span></p></li>
+<li><p>Open terrain (grassland): <span class="math inline">\(\alpha \approx 0.15\)</span></p></li>
+<li><p>Suburban areas: <span class="math inline">\(\alpha \approx 0.25\)</span></p></li>
+<li><p>Urban/forest: <span class="math inline">\(\alpha \approx 0.3-0.4\)</span></p></li>
+</ul>
+<p><strong>Atmospheric stability:</strong></p>
+<ul>
+<li><p>Unstable conditions: <span class="math inline">\(\alpha\)</span> decreases (enhanced mixing)</p></li>
+<li><p>Stable conditions: <span class="math inline">\(\alpha\)</span> increases (reduced mixing)</p></li>
+<li><p>Neutral conditions: Standard values apply</p></li>
+</ul>
 </section>
 <section id="implementation-approach" class="level3" data-number="2.1.3">
 <h3 data-number="2.1.3" class="anchored" data-anchor-id="implementation-approach"><span class="header-section-number">2.1.3</span> Implementation Approach</h3>
@@ -371,8 +383,17 @@ diagnostics), including any assumptions or approximations.</code></pre>
 <p><strong>Woetman Nielsen and Petersen (2001):</strong> Introduces important stability effects but tends to overestimate the effects of atmospheric stability, particularly in unstable conditions over rough surfaces. Complex parameter determination limits practical application.</p>
 <p><strong>Suomi et al.&nbsp;(2013):</strong> Demonstrates superior performance across different stability conditions and surface types. The method successfully captures height dependence, stability effects, and surface roughness impacts without the overestimation issues of WNP01. Recommended for wind energy applications despite higher computational requirements.</p>
 </section>
-<section id="references" class="level1" data-number="5">
-<h1 data-number="5"><span class="header-section-number">5</span> References</h1>
+<section id="python-implementation" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Python implementation</h1>
+<p>The script under <code>data_processing/calculate_wind_ gust.py</code> implements simplified versions of the formulas listed above</p>
+<ul>
+<li><p>Multiplicative Factor Method: The script’s multiplicative approach ( gust = U10 m × gust_factor) is an empirical baseline akin to the Power Law Method and the general use of a gust factor described in both operational practice. The gust factor is commonly used in structural engineering and forecast practice, and its values (e.g., 1.5) originate from statistical studies of wind speed records, including recommendations by the World Meteorological Organization and model parameterizations.</p></li>
+<li><p>Friction Velocity Method: The script uses friction velocity (gust = U10m + α u∗), which is related to the Wieringa (1973) Method as described above. The method stems from boundary-layer similarity theory and is implemented in meteorological models (e.g., HIRLAM, WRF postprocessing routines). The relation between the friction velocity and gusts is a diagnostic, physically motivated approach, with typical coefficients ( α, e.g., 3.0) chosen based on model calibration and observational fit.</p></li>
+<li><p>Turbulent Kinetic Energy (TKE) Method: The TKE-based formula ( gust = U10m + β TKE) from the script is most similar to advanced methods such as the Suomi et al.&nbsp;(2013) Method and other turbulence-based approaches reviewed in your document. These rely on turbulence intensity (often parameterized by TKE or related metrics) and standard deviation of wind components, matching the rationale for using TKE in gust calculations. The formula is widely cited in the literature (e.g., ECMWF, WRF, and several peer-reviewed studies). The approach relates wind gusts to fluctuations in the wind field, quantified by the square root of TKE (the standard deviation of turbulent wind components), and typically uses empirically-derived multipliers ( β, often 2.0–3.0). This method reflects the physical process that wind gusts are generated by turbulent eddies, with TKE providing a statistical measure of gustiness.</p></li>
+</ul>
+</section>
+<section id="references" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> References</h1>
 <p>Suomi, I., Vihma, T., Gryning, S. E., &amp; Fortelius, C. (2013). Wind-gust parametrizations at heights relevant for wind energy: a study based on mast observations. <em>Quarterly Journal of the Royal Meteorological Society</em>, 139(674), 1298-1310. https://doi.org/10.1002/qj.2039</p>
 <p>Wieringa, J. (1973). Gust factors over open water and built-up country. <em>Boundary-Layer Meteorology</em>, 3(4), 424-441. https://doi.org/10.1007/BF01034986</p>
 <p>Woetmann Nielsen, N., &amp; Petersen, C. (2001). Calculation of wind gusts in DMI-HIRLAM. <em>Danish Meteorological Institute Scientific Report</em>, 01-03.</p>

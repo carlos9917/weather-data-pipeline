@@ -55,7 +55,7 @@ weather-data-pipeline/
     curl -LsSf https://astral.sh/uv/install.sh | sh
 
     # Create and activate a virtual environment
-    uv venv .venv --python 3.10
+    uv venv .venv --python 3.11
     source .venv/bin/activate
 
     # Install the required Python dependencies

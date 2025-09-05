@@ -10,7 +10,7 @@ This project is a classic example of an ETL (Extract, Transform, Load) pipeline:
 
    * Extract: The data_ingestion scripts connect to external data sources (weather data from meteorological data centers) and download the raw weather forecast data (GRIB or NetCDF files).
    * Transform: The data_processing scripts take the raw data, clean it, select the necessary parameters, calculate new variables (like wind gusts), and convert it into an optimized format (Zarr or duckdb).
-   * Load: The final, processed data is loaded into a storage system (storage/processed_data/) where it can be efficiently accessed by the visualization scripts to generate maps and power the
+   * Load: The final, processed data is loaded into a storage system (data/processed_data/) where it can be efficiently accessed by the visualization scripts to generate maps and power the
      interactive dashboard.
 
 
@@ -37,8 +37,8 @@ The pipeline is designed as a modular, automated system:
     - `data_ingestion/gfs_downloader.py` and `data_ingestion/met_downloader.py` handle the download of GFS and MET data, respectively.
 
 3.  **Data Processing**:
-    - `data_processing/process_data.py` and `data_processing/process_met_data.py` process the raw data into a usable format (likely xarray or similar).
-    - `data_processing/calculate_wind_gust.py` implements the wind gust calculation.
+    - `data_processing/process_data.py` and `data_processing/process_met_data.py` process the raw data into a usable format (zarr or duckdb).
+    - `data_processing/calculate_wind_gust.py` implements a simplified wind gust calculation.
 
 4.  **Visualization**:
     - `visualization/create_visualizations.py` and `visualization/create_met_visualizations.py` generate static visualizations.
@@ -79,6 +79,12 @@ The pipeline is designed as a modular, automated system:
 
 ## Possible extensions
 
-- **Include IFS**
+- **Include IFS**: The ECMFWF model is widely regarded as the most reliable for the medium range scale.
 
-- **Include a validation pipeline**
+- **Include a validation pipeline**: Currently the scripts only download data and plot them, but 
+  in order to validate the simulations one would need to also include a proper model verification.
+
+- **Include ensemble data**: all current operational models provide an ensemble. In this case we are only
+   downloading the deterministic version of GFS, and a post-processed version of the MET Norway model.
+
+- **Download observational data**: needed to do the validation of the simulations.
