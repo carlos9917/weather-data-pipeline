@@ -141,6 +141,10 @@ After the pipeline has run successfully, you can view the output in two ways:
     python ./visualization/run_dashboard.py # for the standard version
     python ./visualization/run_dashboard.py --dashboard_type "scatter" # for a scatter-point based display.
     ```
+    Note that in this last case only the corners of Europe are shown in the data for GFS,
+    since there only data for this region will be downloaded. For MET the domain includes
+    all Scandinavia and the baltics.
+
 
 ## 🔧 Configuration
 
