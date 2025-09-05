@@ -2,8 +2,6 @@ import os
 import xarray as xr
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
