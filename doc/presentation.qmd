@@ -13,6 +13,32 @@ This project is a classic example of an ETL (Extract, Transform, Load) pipeline:
    * Load: The final, processed data is loaded into a storage system (data/processed_data/) where it can be efficiently accessed by the visualization scripts to generate maps and power the
      interactive dashboard.
 
+## Parameter Selection for Operational and GNSS Applications
+
+  For this prototype, we've focused on three key atmospheric variables:
+
+   * Precipitation: Essential for agriculture, flood forecasting, and general public safety.
+
+   * Cloud Cover: Critical for the solar energy sector, aviation, and temperature forecasting.
+
+   * Wind: A key parameter for aviation, shipping, wind power generation, and structural engineering.
+
+  Usability for GNSS Applications
+
+  This data pipeline is relevant for GNSS (Global Navigation Satellite System) applications, particularly for
+  improving positioning accuracy by correcting for tropospheric delay.
+
+   * Tropospheric Delay Correction: The troposphere delays GNSS signals, introducing errors in positioning. Weather models
+     provide the necessary data (temperature, pressure, and humidity) to accurately model this delay and correct for it. Our
+     pipeline can be easily extended to process these variables.
+
+   * Precipitable Water Vapor (PWV): The tropospheric delay is closely related to the amount of water vapor in the atmosphere
+     (PWV). By processing data from the high-resolution MET model, our pipeline can provide accurate, near real-time PWV
+     estimates, which are valuable for both GNSS correction and severe weather forecasting.
+
+   * Actionable Visualizations: The visualization component of our pipeline could be extended to generate maps of
+     tropospheric delay or PWV, providing a valuable decision-support tool for GNSS users and meteorologists.
+
 
 ## Data Sources
 
