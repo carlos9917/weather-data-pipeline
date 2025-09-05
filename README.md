@@ -35,7 +35,7 @@ weather-data-pipeline/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.11+
 - Linux/macOS (tested on Linux)
 - `curl` and `bash` for installing `uv`.
 
