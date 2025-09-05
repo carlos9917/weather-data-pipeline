@@ -77,6 +77,25 @@ The pipeline is designed as a modular, automated system:
     - **Reasoning**: Provides a much richer user experience and allows for deeper exploration of the data.
     - **Trade-off**: More complex to develop and maintain than static visualizations.
 
+## Operationalizing the Pipeline
+
+To move this pipeline from a manual process to a reliable, automated service, we can implement modern DevOps practices.
+
+- **Containerization with Docker**:
+    - A `Dockerfile` has been created to package the entire application—including all dependencies, scripts, and configurations—into a portable container image.
+    - **Benefits**: Ensures the pipeline runs consistently across any environment (development, testing, production) and simplifies deployment.
+
+- **CI/CD with GitHub Actions**:
+    - **Continuous Integration (CI)**: An automated workflow can be set up to run tests (`pytest`) on every push or pull request. This catches bugs early and maintains code quality.
+    - **Continuous Deployment (CD)**: On a successful merge to the main branch, a GitHub Action can automatically:
+        1.  Build the Docker image.
+        2.  Push the image to a container registry (e.g., Docker Hub, GitHub Container Registry).
+        3.  Deploy the new image to a cloud service for execution.
+
+- **Cloud Deployment**:
+    - The container can be run on cloud services like **AWS ECS**, **Google Cloud Run**, or a **Kubernetes** cluster.
+    - These services can manage scheduled runs (e.g., running the `scheduler` mode every 6 hours) and host the web dashboard, ensuring high availability and scalability.
+
 ## Possible extensions
 
 - **Include IFS**: The ECMFWF model is widely regarded as the most reliable for the medium range scale.

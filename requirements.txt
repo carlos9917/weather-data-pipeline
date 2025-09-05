@@ -75,3 +75,4 @@ werkzeug==3.0.6
 xarray==2025.9.0
 zarr==3.1.2
 zipp==3.23.0
+pytest==8.2.0

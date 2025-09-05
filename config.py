@@ -43,20 +43,29 @@ GFS_VARIABLES = [
     'GUST:surface'              # Wind gust
 ]
 
+import os
+
+# ... (rest of the imports)
+
+# ... (rest of the file)
+
 # Database settings
-OUTPUT_FORMAT = "zarr" # "duckdb" or "zarr"
-DATABASE_PATH = "data/processed/gfs_data.duckdb"
-ZARR_STORE_PATH = "data/processed/gfs_data.zarr"
-ZARR_STORE_PATH_MET = "data/processed/met_data.zarr"
+OUTPUT_FORMAT = os.environ.get("OUTPUT_FORMAT", "zarr") # "duckdb" or "zarr"
+DATABASE_PATH = os.environ.get("DATABASE_PATH", "data/processed/gfs_data.duckdb")
+ZARR_STORE_PATH = os.environ.get("ZARR_STORE_PATH", "data/processed/gfs_data.zarr")
+ZARR_STORE_PATH_MET = os.environ.get("ZARR_STORE_PATH_MET", "data/processed/met_data.zarr")
 
 # Logging settings
-LOG_LEVEL = "INFO"
-LOG_FILE = "logs/pipeline.log"
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+LOG_FILE = os.environ.get("LOG_FILE", "logs/pipeline.log")
 
 # Dashboard settings
-DASHBOARD_HOST = "127.0.0.1"
-DASHBOARD_PORT = 8050
-DASHBOARD_DEBUG = True
+DASHBOARD_HOST = os.environ.get("DASHBOARD_HOST", "127.0.0.1")
+DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", 8050))
+DASHBOARD_DEBUG = os.environ.get("DASHBOARD_DEBUG", "True").lower() in ("true", "1", "t")
+
+# ... (rest of the file)
+
 
 # Data access method: 'direct', 'grib_filter'
 ACCESS_METHOD = 'direct'  # Try direct download first
