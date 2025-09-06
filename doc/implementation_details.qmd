@@ -1,6 +1,6 @@
 ---
 title: "Weather Data Pipeline Implementation"
-author: "Gemini"
+author: "Carlos Peralta"
 format: 
   html:
     toc: true

@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.32">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Carlos Peralta">
+
+<title>Weather Data Pipeline Implementation</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="implementation_details_files/libs/clipboard/clipboard.min.js"></script>
+<script src="implementation_details_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="implementation_details_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="implementation_details_files/libs/quarto-html/popper.min.js"></script>
+<script src="implementation_details_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="implementation_details_files/libs/quarto-html/anchor.min.js"></script>
+<link href="implementation_details_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="implementation_details_files/libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="implementation_details_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="implementation_details_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="implementation_details_files/libs/bootstrap/bootstrap-9c15a5338fb2cec66ee684ebdf9d454e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#parameter-selection-for-gnss-meteorology" id="toc-parameter-selection-for-gnss-meteorology" class="nav-link" data-scroll-target="#parameter-selection-for-gnss-meteorology">Parameter Selection for GNSS Meteorology</a>
+  <ul class="collapse">
+  <li><a href="#what-is-gnss-meteorology" id="toc-what-is-gnss-meteorology" class="nav-link" data-scroll-target="#what-is-gnss-meteorology">What is GNSS Meteorology?</a></li>
+  <li><a href="#choice-of-variables" id="toc-choice-of-variables" class="nav-link" data-scroll-target="#choice-of-variables">Choice of Variables</a></li>
+  </ul></li>
+  <li><a href="#system-architecture" id="toc-system-architecture" class="nav-link" data-scroll-target="#system-architecture">System Architecture</a>
+  <ul class="collapse">
+  <li><a href="#orchestration" id="toc-orchestration" class="nav-link" data-scroll-target="#orchestration">Orchestration</a></li>
+  <li><a href="#data-ingestion" id="toc-data-ingestion" class="nav-link" data-scroll-target="#data-ingestion">Data Ingestion</a></li>
+  <li><a href="#data-processing-and-storage" id="toc-data-processing-and-storage" class="nav-link" data-scroll-target="#data-processing-and-storage">Data Processing and Storage</a></li>
+  <li><a href="#wind-gust-calculation" id="toc-wind-gust-calculation" class="nav-link" data-scroll-target="#wind-gust-calculation">Wind Gust Calculation</a></li>
+  </ul></li>
+  <li><a href="#visualization" id="toc-visualization" class="nav-link" data-scroll-target="#visualization">Visualization</a></li>
+  <li><a href="#usage" id="toc-usage" class="nav-link" data-scroll-target="#usage">Usage</a>
+  <ul class="collapse">
+  <li><a href="#configuration" id="toc-configuration" class="nav-link" data-scroll-target="#configuration">Configuration</a></li>
+  <li><a href="#running-the-pipeline" id="toc-running-the-pipeline" class="nav-link" data-scroll-target="#running-the-pipeline">Running the Pipeline</a></li>
+  </ul></li>
+  <li><a href="#dependencies" id="toc-dependencies" class="nav-link" data-scroll-target="#dependencies">Dependencies</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Weather Data Pipeline Implementation</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Carlos Peralta </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>This document details the implementation of a weather data processing pipeline with focus on GNSS meteorology and operational forecasting. The primary goal of this pipeline is to ingest raw GRIB2 forecast data from multiple sources, process it into a structured and efficient format, and produce actionable visualizations.</p>
+<p>A key feature of the current implementation is its use of <strong>Zarr</strong> for cloud-native, chunked data storage, which is highly efficient for the time-series and multi-dimensional data typical of weather models.</p>
+</section>
+<section id="parameter-selection-for-gnss-meteorology" class="level2">
+<h2 class="anchored" data-anchor-id="parameter-selection-for-gnss-meteorology">Parameter Selection for GNSS Meteorology</h2>
+<p>The pipeline is configured to process specific atmospheric variables that are crucial for <strong>Global Navigation Satellite System (GNSS) meteorology</strong> and general operational awareness.</p>
+<section id="what-is-gnss-meteorology" class="level3">
+<h3 class="anchored" data-anchor-id="what-is-gnss-meteorology">What is GNSS Meteorology?</h3>
+<p>GNSS meteorology is a technique that uses the signals from satellites (like GPS, Galileo, etc.) to measure the amount of water vapor in the atmosphere. When GNSS signals travel from a satellite to a ground-based receiver, they are delayed by the atmosphere. This delay, known as the Zenith Tropospheric Delay (ZTD), has two main components: a “dry” part caused by all atmospheric gases and a “wet” part caused almost entirely by water vapor.</p>
+<p>By precisely measuring the total delay and subtracting the well-understood dry component (which can be calculated from surface pressure), scientists can isolate the wet delay. This wet delay is directly proportional to the total amount of water vapor in the column of atmosphere above the receiver. This quantity is called <strong>Precipitable Water Vapor (PWV)</strong>.</p>
+</section>
+<section id="choice-of-variables" class="level3">
+<h3 class="anchored" data-anchor-id="choice-of-variables">Choice of Variables</h3>
+<p>The variables selected for this pipeline are essential for both direct use in GNSS meteorology and for providing operational context:</p>
+<ul>
+<li><strong><code>precipitable_water</code> (pwat)</strong>: This is the primary variable of interest. Weather models like GFS provide a forecast of this value, which can be compared against the real-time measurements from a GNSS receiver for model validation or data assimilation.</li>
+<li><strong><code>surface_pressure</code> (sp)</strong>: Surface pressure is required to calculate the “dry” part of the signal delay. Accurate pressure forecasts are vital for deriving accurate PWV from GNSS measurements.</li>
+<li><strong><code>temperature</code> (t2m)</strong>: Temperature influences the atmospheric density and the constants used in the PWV calculation.</li>
+<li><strong><code>wind</code> (u10, v10, u100, v100)</strong>: Wind fields at 10m and 100m are crucial for understanding the transport of water vapor, for renewable energy applications (wind turbines), and for aviation safety.</li>
+<li><strong><code>wind_gust</code> (gust)</strong>: This is a direct model output critical for safety-related decisions in aviation, event management, and energy infrastructure.</li>
+<li><strong><code>precipitation</code> (tp)</strong> and <strong><code>cloud_cover</code> (tcc)</strong>: These variables provide operational context. They help meteorologists understand whether the atmospheric water vapor is likely to result in rain or cloud formation, which is essential for decision-making.</li>
+</ul>
+</section>
+</section>
+<section id="system-architecture" class="level2">
+<h2 class="anchored" data-anchor-id="system-architecture">System Architecture</h2>
+<p>The pipeline is designed as a modular, orchestrated system that handles data from ingestion to visualization.</p>
+<pre class="mermaid"><code>graph TD
+    A[run_pipeline.sh] --&gt; B{Orchestration};
+    B --&gt; C[GFS Downloader];
+    B --&gt; D[MET Nordic Downloader];
+    C --&gt; E{Data Processing};
+    D --&gt; E;
+    E --&gt; F[Zarr Storage];
+    F --&gt; G{Visualization};
+    G --&gt; H[Static Maps];
+    G --&gt; I[Interactive Dashboard];</code></pre>
+<section id="orchestration" class="level3">
+<h3 class="anchored" data-anchor-id="orchestration">Orchestration</h3>
+<p>The entire pipeline is managed by the <code>scr/run_pipeline.sh</code> script, which calls <code>orchestration/pipeline_scheduler.py</code>. This scheduler executes the pipeline steps in a predefined order for a given forecast cycle (<code>--date</code> and <code>--cycle</code>).</p>
+<p>The sequence of operations is: 1. Download GFS Data (<code>data_ingestion/gfs_downloader.py</code>) 2. Download MET Nordic Data (<code>data_ingestion/met_downloader.py</code>) 3. Process GFS Data (<code>data_processing/process_data.py</code>) and save to Zarr. 4. Create GFS Visualizations (<code>visualization/create_visualizations.py</code>). 5. Process MET Nordic Data (<code>data_processing/process_met_data.py</code>). 6. Create MET Visualizations (<code>visualization/create_met_visualizations.py</code>).</p>
+</section>
+<section id="data-ingestion" class="level3">
+<h3 class="anchored" data-anchor-id="data-ingestion">Data Ingestion</h3>
+<p>The pipeline ingests data from two sources as required: - <strong>Global Model</strong>: The <strong>Global Forecast System (GFS)</strong> is downloaded via <code>gfs_downloader.py</code>. - <strong>Regional Model</strong>: The <strong>MET Nordic</strong> forecast covering Northern Europe is downloaded via <code>met_downloader.py</code>.</p>
+</section>
+<section id="data-processing-and-storage" class="level3">
+<h3 class="anchored" data-anchor-id="data-processing-and-storage">Data Processing and Storage</h3>
+<p>The core processing logic resides in <code>data_processing/process_data.py</code> (for GFS) and <code>process_met_data.py</code> (for MET).</p>
+<ol type="1">
+<li><strong>File Iteration</strong>: The functions iterate through the raw GRIB2 files for a given date and cycle.</li>
+<li><strong>Data Loading</strong>: For each file, <code>xarray</code> and the <code>cfgrib</code> engine are used to open datasets for the relevant atmospheric variables.</li>
+<li><strong>Data Merging &amp; Calculation</strong>: The individual datasets are merged into a single <code>xarray.Dataset</code>. New variables, such as <code>wind_speed_10m</code>, are calculated from the <code>u</code> and <code>v</code> wind components.</li>
+<li><strong>Storage</strong>: The final, processed <code>xarray.Dataset</code> for the entire forecast cycle is written to a cycle-specific Zarr store (e.g., <code>data/processed/gfs_{date}_{cycle}.zarr</code>). Zarr was chosen for its efficient handling of chunked, multi-dimensional data, which allows for fast access to data subsets (e.g., a specific variable over a specific time range) without loading the entire file.</li>
+</ol>
+</section>
+<section id="wind-gust-calculation" class="level3">
+<h3 class="anchored" data-anchor-id="wind-gust-calculation">Wind Gust Calculation</h3>
+<p>The project includes a dedicated script, <code>data_processing/calculate_wind_gust.py</code>, to explore different methods of deriving wind gusts from model outputs. This script is not part of the main pipeline but serves to answer the technical question posed in the project requirements. It implements three common methods:</p>
+<ol type="1">
+<li><strong>Multiplicative Factor</strong>: A simple approach where the sustained 10m wind speed is multiplied by a constant factor (e.g., 1.5).</li>
+<li><strong>Friction Velocity</strong>: A more physical approach using momentum fluxes (<code>u_flux</code>, <code>v_flux</code>) to calculate the friction velocity (<code>u*</code>), which is then added to the sustained wind speed. <code>Gust = U10m + alpha * u*</code>.</li>
+<li><strong>Turbulent Kinetic Energy (TKE)</strong>: Uses the TKE field from the model, which represents the intensity of turbulence. <code>Gust = U10m + beta * sqrt(TKE)</code>.</li>
+</ol>
+<p>While the main pipeline uses the direct <code>gust</code> variable from the model output, this script demonstrates the ability to derive this critical parameter if it were not available.</p>
+</section>
+</section>
+<section id="visualization" class="level2">
+<h2 class="anchored" data-anchor-id="visualization">Visualization</h2>
+<p>The pipeline produces two types of visualizations from the processed Zarr data:</p>
+<ol type="1">
+<li><p><strong>Static Maps</strong>: The <code>visualization/create_visualizations.py</code> script generates a series of <code>.png</code> map images for each variable and for each time step in the forecast. These maps are saved in the <code>visualization/plots</code> directory. They are useful for quick, static views of the forecast evolution.</p></li>
+<li><p><strong>Interactive Dashboard</strong>: The <code>visualization/run_dashboard.py</code> script launches a web-based interactive dashboard built with Plotly and Dash. This dashboard allows a user to:</p>
+<ul>
+<li>Select the forecast model (GFS or MET).</li>
+<li>Choose a specific date and cycle.</li>
+<li>Select the atmospheric variable to display.</li>
+<li>Use a time-slider to smoothly animate the forecast over time.</li>
+<li>Pan and zoom the map for detailed regional views.</li>
+</ul></li>
+</ol>
+<p>This interactive tool is the primary interface for decision-support, as it provides a dynamic and user-friendly way to explore the forecast data.</p>
+</section>
+<section id="usage" class="level2">
+<h2 class="anchored" data-anchor-id="usage">Usage</h2>
+<section id="configuration" class="level3">
+<h3 class="anchored" data-anchor-id="configuration">Configuration</h3>
+<p>The main configuration, such as the map boundaries (<code>EUROPE_BOUNDS</code>), is located in <code>config.py</code>.</p>
+</section>
+<section id="running-the-pipeline" class="level3">
+<h3 class="anchored" data-anchor-id="running-the-pipeline">Running the Pipeline</h3>
+<p>The primary way to run the pipeline is using the <code>scr/run_pipeline.sh</code> script.</p>
+<p>The script has four modes:</p>
+<ol type="1">
+<li><p><strong><code>default</code></strong>: Automatically determines the latest available GFS cycle and runs the pipeline for it. This is the most common use case for automated runs. <code>bash     ./scr/run_pipeline.sh default</code></p></li>
+<li><p><strong><code>manual</code></strong>: Allows you to run the pipeline for a specific date and cycle. This is useful for reprocessing historical data or debugging. <code>bash     ./scr/run_pipeline.sh manual --date 20231027 --cycle 12</code></p></li>
+<li><p><strong><code>scheduler</code></strong>: Runs the pipeline in a continuous loop, waiting 6 hours between each run. This is intended for a 24/7 operational deployment. <code>bash     ./scr/run_pipeline.sh scheduler</code></p></li>
+<li><p><strong><code>dashboard</code></strong>: Starts the interactive web dashboard. <code>bash     ./scr/run_pipeline.sh dashboard</code></p></li>
+</ol>
+</section>
+</section>
+<section id="dependencies" class="level2">
+<h2 class="anchored" data-anchor-id="dependencies">Dependencies</h2>
+<p>The key Python libraries used in this pipeline are:</p>
+<ul>
+<li><strong><code>xarray</code></strong>: For handling multi-dimensional labeled data.</li>
+<li><strong><code>cfgrib</code></strong>: The engine used by xarray to read GRIB files.</li>
+<li><strong><code>zarr</code></strong>: For chunked, compressed, N-dimensional array storage.</li>
+<li><strong><code>pandas</code></strong>: Used for time-series manipulation.</li>
+<li><strong><code>cartopy</code></strong>: For creating the static map projections.</li>
+<li><strong><code>plotly</code> &amp; <code>dash</code></strong>: For the interactive dashboard.</li>
+</ul>
+<p>All required dependencies are listed in the <code>requirements.txt</code> file.</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
