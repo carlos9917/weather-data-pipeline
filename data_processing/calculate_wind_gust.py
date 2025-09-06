@@ -90,7 +90,7 @@ def main(zarr_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Calculate wind gust using different methods.")
-    parser.add_argument("--zarr_path", default='/home/tenantadmin/weather-data-pipeline/data/processed/gfs_data.zarr', help="Path to the GFS Zarr dataset.")
+    parser.add_argument("--zarr_path", default='data/processed/gfs_20250903_06.zarr', help="Path to the GFS Zarr dataset.")
     args = parser.parse_args()
     
     main(args.zarr_path)
