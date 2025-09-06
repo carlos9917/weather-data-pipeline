@@ -126,9 +126,10 @@ To move this pipeline from a manual process to a reliable, automated service, we
 - **Include a validation pipeline**: Currently the scripts only download data and plot them, but 
   in order to validate the simulations one would need to also include a proper model verification.
 
-- **Include ensemble data**: all current operational models provide an ensemble. In this case we are only
-   downloading the deterministic version of GFS, and a post-processed version of the MET Norway model.
+- **Include ensemble data**: for probabilistic forecasting
 
 - **Download observational data**: needed to do the validation of the simulations.
+
+- **Improve visualizations**: using web optimized tools like `weatherlayers-gl`.
 
 # Live Demonstration {.center}
