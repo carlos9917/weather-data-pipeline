@@ -19,6 +19,15 @@ EUROPE_BOUNDS = {
     'lon_max': 40.0
 }
 
+# Scandinavia region bounds (lat/lon) - covers Norway, Sweden, Finland, Denmark, Baltics
+# Encompasses turbine locations in Finland (lat 60.55-64.54, lon 24.02-27.08)
+SCANDINAVIA_BOUNDS = {
+    'lat_min': 55.0,
+    'lat_max': 72.0,
+    'lon_min': 4.0,
+    'lon_max': 32.0
+}
+
 # GFS file naming convention
 # Format: gfs.t{cycle}z.pgrb2.0p25.f{forecast_hour:03d}
 GFS_FILE_TEMPLATE = "gfs.t{cycle}z.pgrb2.0p25.f{forecast_hour:03d}"
@@ -26,6 +35,12 @@ GFS_FILE_TEMPLATE = "gfs.t{cycle}z.pgrb2.0p25.f{forecast_hour:03d}"
 # MET Nordic data configuration
 MET_NORDIC_BASE_URL = "https://thredds.met.no/thredds/fileServer/metpparchive"
 MET_NORDIC_FILE_TEMPLATE = "met_forecast_1_0km_nordic_{date}T{cycle}Z.nc"
+
+# MEPS 2.5km data configuration (MET Norway archive)
+MEPS25_BASE_URL = "https://thredds.met.no/thredds/fileServer/meps25epsarchive"
+MEPS25_OPENDAP_URL = "https://thredds.met.no/thredds/dodsC/meps25epsarchive"
+MEPS25_FILE_TEMPLATE = "meps_det_sfc_{date}T{cycle}Z.ncml"
+MEPS25_CYCLES = ["00", "06", "12", "18"]
 
 # Variables needed for wind power density and temperature
 GFS_VARIABLES = [
@@ -49,6 +64,10 @@ OUTPUT_FORMAT = "zarr" # "duckdb" or "zarr"
 DATABASE_PATH = "data/processed/gfs_data.duckdb"
 ZARR_STORE_PATH = "data/processed/gfs_data.zarr"
 ZARR_STORE_PATH_MET = "data/processed/met_data.zarr"
+ZARR_STORE_PATH_MEPS25 = "data/processed/meps25_data.zarr"
+
+# Turbine data settings (for MEPS25 visualizations)
+TURBINE_DATA_PATH = "visualization/processed_data"
 
 # Logging settings
 LOG_LEVEL = "INFO"

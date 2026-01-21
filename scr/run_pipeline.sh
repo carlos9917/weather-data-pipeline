@@ -7,12 +7,27 @@
 # Function to display help
 show_help() {
     echo "Usage: ./run_pipeline.sh [scheduler|dashboard|manual|default] [options]"
-    echo "  - scheduler: Run the automated data extraction and analysis pipeline every 6 hours."
-    echo "  - dashboard: Run the interactive Python Dash dashboard."
-    echo "  - manual: Run a one-time data extraction and analysis."
-    echo "    - --date <YYYYMMDD>: The date to extract data for."
-    echo "    - --cycle <00|06|12|18>: The GFS cycle to extract data for."
-    echo "  - default: Run the pipeline for the latest available data."
+    echo ""
+    echo "Modes:"
+    echo "  scheduler  - Run the automated pipeline every 6 hours (all sources)"
+    echo "  dashboard  - Run the interactive Python Dash dashboard"
+    echo "  manual     - Run a one-time pipeline with custom options"
+    echo "  default    - Run the pipeline for the latest available data (all sources)"
+    echo ""
+    echo "Manual mode options:"
+    echo "  --date <YYYYMMDD>           Date to extract data for"
+    echo "  --cycle <00|06|12|18>       Forecast cycle"
+    echo "  --sources <src1> [src2...]  Data sources: gfs, met, meps25 (default: all)"
+    echo "  --skip-download             Skip download steps (use existing raw data)"
+    echo "  --skip-process              Skip processing steps (use existing Zarr)"
+    echo "  --skip-visualize            Skip visualization steps"
+    echo ""
+    echo "Examples:"
+    echo "  ./run_pipeline.sh default"
+    echo "  ./run_pipeline.sh manual --date 20231115 --cycle 06"
+    echo "  ./run_pipeline.sh manual --date 20231115 --cycle 06 --sources meps25"
+    echo "  ./run_pipeline.sh manual --date 20231115 --cycle 06 --sources gfs meps25"
+    echo "  ./run_pipeline.sh manual --date 20231115 --cycle 06 --sources met --skip-download"
 }
 
 
