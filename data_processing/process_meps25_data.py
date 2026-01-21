@@ -34,6 +34,7 @@ MEPS25_VARIABLE_MAPPING = {
                             'total_cloud_cover', 'tcc'],
     'atmosphere_water_vapor_content': ['atmosphere_water_vapor_content',
                                        'integral_of_atmosphere_water_vapor_content_wrt_time',
+                                       'lwe_thickness_of_atmosphere_mass_content_of_water_vapor',
                                        'precipitable_water', 'total_precipitable_water'],
 }
 
