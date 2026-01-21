@@ -21,12 +21,22 @@ EUROPE_BOUNDS = {
 
 # Scandinavia region bounds (lat/lon) - covers Norway, Sweden, Finland, Denmark, Baltics
 # Encompasses turbine locations in Finland (lat 60.55-64.54, lon 24.02-27.08)
+#SCANDINAVIA_BOUNDS = {
+#    'lat_min': 55.0,
+#    'lat_max': 72.0,
+#    'lon_min': 4.0,
+#    'lon_max': 32.0
+#}
+
+#1. Tighten to Finland region: lat 59-66, lon 22-32 (~800x700 km)
 SCANDINAVIA_BOUNDS = {
-    'lat_min': 55.0,
-    'lat_max': 72.0,
-    'lon_min': 4.0,
+    'lat_min': 59.0,
+    'lat_max': 66.0,
+    'lon_min': 22.0,
     'lon_max': 32.0
 }
+#2. Just turbine area + buffer: lat 60-65, lon 23-28 (~550x350 km)
+
 
 # GFS file naming convention
 # Format: gfs.t{cycle}z.pgrb2.0p25.f{forecast_hour:03d}
