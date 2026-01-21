@@ -135,6 +135,7 @@ class GFSDataExtractor:
                 'sp':   {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
                 'tcc':  {'filter_by_keys': {'typeOfLevel': 'atmosphere', 'shortName': 'tcc'}},
                 'prate':{'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'prate'}},
+                'pwat':{'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'pwat'}},
             }
 
             ds_list = []

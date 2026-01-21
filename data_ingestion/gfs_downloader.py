@@ -61,7 +61,7 @@ def download_gfs_data(date_str, cycle):
             elif 'surface' in level:
                 params['lev_surface'] = 'on'
             elif 'entire atmosphere' in level:
-                params['lev_entire_atmosphere'] = 'on'
+                params['lev_entire_atmosphere_(considered_as_a_single_layer)'] = 'on'
             elif 'planetary boundary layer' in level:
                 params['lev_planetary_boundary_layer'] = 'on'
 

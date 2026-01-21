@@ -404,7 +404,8 @@ class GFSDashboard:
     def run_server(self):
         """Run the dashboard server"""
         logger.info(f"Starting dashboard server on {DASHBOARD_HOST}:{DASHBOARD_PORT}")
-        self.app.run_server(
+        #self.app.run_server(
+        self.app.run(
             host=DASHBOARD_HOST,
             port=DASHBOARD_PORT,
             debug=DASHBOARD_DEBUG

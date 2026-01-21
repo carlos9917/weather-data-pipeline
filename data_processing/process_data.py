@@ -124,6 +124,7 @@ def process_gfs_data_zarr(date_str, cycle):
                 {'typeOfLevel': 'atmosphere', 'shortName': 'tcc'},
                 {'typeOfLevel': 'surface', 'shortName': 'prate'},
                 {'typeOfLevel': 'surface', 'shortName': 'gust'},
+                {'typeOfLevel': 'atmosphere', 'shortName': 'pwat'},
             ]
 
             for filters in variable_filters:

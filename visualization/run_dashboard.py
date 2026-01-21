@@ -73,7 +73,8 @@ def run_dashboard(host='0.0.0.0', port=8050, debug=True,dashboard_type="simple")
         print(f"Dashboard will be available at: http://{host}:{port}")
         print("Press Ctrl+C to stop the dashboard")
         
-        app.run_server(host=host, port=port, debug=debug)
+        #app.run_server(host=host, port=port, debug=debug)
+        app.run(host=host, port=port, debug=debug)
         
     except ImportError as e:
         print(f"\nError: Could not import the dashboard application.")

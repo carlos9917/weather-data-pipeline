@@ -29,6 +29,7 @@ MET_NORDIC_FILE_TEMPLATE = "met_forecast_1_0km_nordic_{date}T{cycle}Z.nc"
 
 # Variables needed for wind power density and temperature
 GFS_VARIABLES = [
+    'PWAT:entire atmosphere', # precipitale water
     'UGRD:100 m above ground',  # U-component of wind at 100m
     'VGRD:100 m above ground',  # V-component of wind at 100m
     'UGRD:10 m above ground',   # U-component of wind at 10m
@@ -40,7 +41,7 @@ GFS_VARIABLES = [
     #    'TKE:planetary boundary layer',    # Turbulent Kinetic Energy
     'UFLX:surface',             # U-component of momentum flux at surface
     'VFLX:surface',              # V-component of momentum flux at surface
-    'GUST:surface'              # Wind gust
+    'GUST:surface',              # Wind gust
 ]
 
 # Database settings
